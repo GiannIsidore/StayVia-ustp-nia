@@ -27,6 +27,17 @@ export default function ProtectedTabsLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
+  // Initialize animations once with useRef
+  const animations = React.useMemo(
+    () => ({
+      home: new Animated.Value(1),
+      notification: new Animated.Value(1),
+      chat: new Animated.Value(1),
+      account: new Animated.Value(1),
+    }),
+    []
+  );
+
   // Fetch current user to get account type
   const id = user?.id;
   const { data: currentUser, isLoading: isLoadingUser } = useQuery({
@@ -41,13 +52,6 @@ export default function ProtectedTabsLayout() {
 
   if (!isLoaded || isLoadingUser) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
-
-  const animations = {
-    home: useRef(new Animated.Value(1)).current,
-    notification: useRef(new Animated.Value(1)).current,
-    chat: useRef(new Animated.Value(1)).current,
-    account: useRef(new Animated.Value(1)).current,
-  };
 
   const bounce = (key: keyof typeof animations) => {
     Animated.sequence([

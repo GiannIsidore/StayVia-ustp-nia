@@ -152,18 +152,18 @@ export default function NotificationIndex() {
         .from('requests')
         .select(
           `
-                    id,
-                    rental_start_date,
-                    rental_end_date,
-                    monthly_rent_amount,
-                    created_at,
-                    posts(id, title, user_id, post_user:users(id, firstname, lastname, avatar)),
-                    rater:users(id, firstname, lastname, avatar)
-                `
+                     id,
+                     rental_start_date,
+                     rental_end_date,
+                     monthly_rent_amount,
+                     created_at,
+                     posts(id, title, user_id, post_user:users(id, firstname, lastname, avatar)),
+                     rater:users(id, firstname, lastname, avatar)
+                 `
         )
         .eq('user_id', user.id)
         .eq('confirmed', true)
-        .isNull('rating_notif_sent')
+        .is('rating_notif_sent', null)
         .not('rental_start_date', 'is', null)
         .lte('rental_start_date', oneMinuteAgo.toISOString());
 
