@@ -42,7 +42,7 @@ export default function LocationPicker({
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(null);
   const mapRef = useRef<MapView>(null);
 
-  // Get user's current location on mount if no initial location
+  //! Get user's current location on mount if rasad wala pay initial location
   useEffect(() => {
     if (!initialLocation) {
       getCurrentLocation();
@@ -156,8 +156,9 @@ export default function LocationPicker({
                   longitudeDelta: LONGITUDE_DELTA,
                 }
               : {
+                // if walay location mo default dri pede rana ma chang ang latitude og longtitude
                   latitude: 10.3157,
-                  longitude: 123.8854, // Default to Cebu City
+                  longitude: 123.8854, 
                   latitudeDelta: LATITUDE_DELTA,
                   longitudeDelta: LONGITUDE_DELTA,
                 }

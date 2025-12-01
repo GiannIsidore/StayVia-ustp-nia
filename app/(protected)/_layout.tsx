@@ -27,17 +27,6 @@ export default function ProtectedTabsLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  // Initialize animations once with useRef
-  const animations = React.useMemo(
-    () => ({
-      home: new Animated.Value(1),
-      notification: new Animated.Value(1),
-      chat: new Animated.Value(1),
-      account: new Animated.Value(1),
-    }),
-    []
-  );
-
   // Fetch current user to get account type
   const id = user?.id;
   const { data: currentUser, isLoading: isLoadingUser } = useQuery({
@@ -52,6 +41,15 @@ export default function ProtectedTabsLayout() {
 
   if (!isLoaded || isLoadingUser) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
+
+  const animations = {
+    home: useRef(new Animated.Value(1)).current,
+    notification: useRef(new Animated.Value(1)).current,
+    chat: useRef(new Animated.Value(1)).current,
+    account: useRef(new Animated.Value(1)).current,
+    ratings: useRef(new Animated.Value(1)).current,
+    landlordRentals: useRef(new Animated.Value(1)).current,
+  };
 
   const bounce = (key: keyof typeof animations) => {
     Animated.sequence([
@@ -140,6 +138,44 @@ export default function ProtectedTabsLayout() {
           ),
         }}
         listeners={{ tabPress: () => bounce('notification') }}
+      />
+
+      <Tabs.Screen
+        name="ratings"
+        options={{
+          title: 'Your Stays',
+          href: isStudent ? undefined : null,
+          tabBarIcon: ({ color, size, focused }) => (
+            <BouncyIcon
+              name="bed-outline"
+              focusedName="bed"
+              size={size}
+              color={color}
+              focused={focused}
+              bounceAnim={animations.ratings}
+            />
+          ),
+        }}
+        listeners={{ tabPress: () => bounce('ratings') }}
+      />
+
+      <Tabs.Screen
+        name="landlord-rentals"
+        options={{
+          title: 'My Rentals',
+          href: isLandlord ? undefined : null,
+          tabBarIcon: ({ color, size, focused }) => (
+            <BouncyIcon
+              name="key-outline"
+              focusedName="key"
+              size={size}
+              color={color}
+              focused={focused}
+              bounceAnim={animations.landlordRentals}
+            />
+          ),
+        }}
+        listeners={{ tabPress: () => bounce('landlordRentals') }}
       />
 
       <Tabs.Screen
