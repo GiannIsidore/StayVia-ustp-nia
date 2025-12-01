@@ -229,14 +229,7 @@ export default function RatingsPage() {
         {/* All Rentals */}
         <View>
           {/* Test button for debugging */}
-          <TouchableOpacity
-            onPress={() => {
-              console.log('Test button pressed');
-              router.push('/(protected)/ratings/test123');
-            }}
-            className="mb-4 rounded-lg bg-red-500 p-4">
-            <Text className="text-center font-bold text-white">Test Navigation</Text>
-          </TouchableOpacity>
+        
 
           {allRentals.length === 0 ? (
             <View className="items-center justify-center py-12">

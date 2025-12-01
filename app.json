@@ -13,9 +13,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },
@@ -34,7 +32,9 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -54,6 +54,12 @@
         {
           "requestLocationPermission": true,
           "locationPermission": "Allow $(PRODUCT_NAME) to use your location"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow $(PRODUCT_NAME) to access your calendar"
         }
       ],
       "expo-router",

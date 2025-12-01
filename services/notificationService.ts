@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import { googleCalendarService } from './googleCalendarService';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -90,7 +91,7 @@ export const notificationService = {
   },
 
   /**
-   * Send payment reminder notification to landlord
+   * Send payment reminder notification to tenant
    */
   async sendPaymentReminderNotification(tenantName: string, amount: number, dueDate: string) {
     try {
@@ -102,6 +103,75 @@ export const notificationService = {
       );
     } catch (error) {
       console.error('Error sending payment reminder:', error);
+    }
+  },
+
+  /**
+   * Create calendar reminder for payment
+   */
+  async createPaymentCalendarReminder(
+    rentalId: string,
+    propertyTitle: string,
+    amount: number,
+    dueDate: Date
+  ) {
+    try {
+      await googleCalendarService.createPaymentEvent({
+        date: dueDate,
+        amount,
+        rentalId,
+        propertyTitle,
+      });
+    } catch (error) {
+      console.error('Error creating calendar reminder:', error);
+      // Fallback to local notification if calendar fails
+      await this.sendLocalNotification(
+        '💳 Payment Due',
+        `Payment of ₱${amount.toLocaleString()} due for ${propertyTitle}`,
+        { type: 'payment_due', rentalId },
+        1
+      );
+    }
+  },
+
+  /**
+   * Create calendar reminders for all payments in a rental
+   */
+  async createRentalCalendarReminders(
+    rentalId: string,
+    propertyTitle: string,
+    paymentDates: Date[],
+    amount: number
+  ) {
+    try {
+      await googleCalendarService.createRentalPaymentEvents(
+        rentalId,
+        propertyTitle,
+        paymentDates,
+        amount
+      );
+    } catch (error) {
+      console.error('Error creating rental calendar reminders:', error);
+      // Fallback to local notifications
+      for (const date of paymentDates) {
+        await this.sendLocalNotification(
+          '💳 Payment Scheduled',
+          `Payment of ₱${amount.toLocaleString()} scheduled for ${date.toLocaleDateString()}`,
+          { type: 'payment_scheduled', rentalId },
+          1
+        );
+      }
+    }
+  },
+
+  /**
+   * Remove calendar reminders for a rental
+   */
+  async removeRentalCalendarReminders(rentalId: string) {
+    try {
+      await googleCalendarService.deleteRentalEvents(rentalId);
+    } catch (error) {
+      console.error('Error removing calendar reminders:', error);
     }
   },
 

@@ -21,6 +21,9 @@ export const useRentalNotifications = () => {
       } else if (data.action === 'open_payments') {
         // Navigate to payment schedule when payment notification is tapped
         router.push('/(protected)/landlord-rentals/payment-calendar');
+      } else if (data.action === 'open_calendar') {
+        // Navigate to calendar page when calendar notification is tapped
+        router.push('/(protected)/calendar');
       }
     });
 
