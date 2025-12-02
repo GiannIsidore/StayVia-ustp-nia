@@ -7,8 +7,6 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import MapView, { Marker, Circle } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
 import { Landmark, getPlaceTypeIcon } from '@/services/mapService';
 
 interface MapViewWithLandmarksProps {
@@ -20,21 +18,24 @@ interface MapViewWithLandmarksProps {
   colors: any;
   onRadiusChange?: (radius: number) => void;
   radius?: number;
-  // 🗺️ Removed category filtering - using Google Maps prominence ranking!
+  onCategoryChange?: (category: string) => void;
+  category?: string;
 }
-
-// Dynamic zoom calculation based on radius
-// Converts meters to degrees (approximate, 1 degree ≈ 111km)
-const calculateDelta = (radius: number) => {
-  // Add 50% padding to ensure the circle fits comfortably
-  const paddedRadius = radius * 1.5;
-  return (paddedRadius / 111000) * 2; // Convert to degrees with padding
-};
 
 const ITEMS_PER_PAGE = 10;
 
-// 🗑️ Removed CATEGORY_FILTERS - now using Google Maps prominence ranking!
+const CATEGORY_FILTERS = [
+  { id: 'essentials', label: 'Essentials', icon: '⭐' },
+  { id: 'all', label: 'All', icon: '📱' },
+  { id: 'education', label: 'Education', icon: '🎓' },
+  { id: 'health', label: 'Health', icon: '🏥' },
+  { id: 'entertainment', label: 'Entertainment', icon: '🎮' },
+  { id: 'finance', label: 'Finance', icon: '💳' },
+  { id: 'services', label: 'Services', icon: '🔧' },
+  { id: 'worship', label: 'Worship', icon: '❤️' },
+];
 
+// Web version - uses a simple placeholder map
 export default function MapViewWithLandmarks({
   latitude,
   longitude,
@@ -43,17 +44,14 @@ export default function MapViewWithLandmarks({
   isLoading,
   colors,
   onRadiusChange,
-  radius = 500,
+  radius = 1000,
+  onCategoryChange,
+  category = 'essentials',
 }: MapViewWithLandmarksProps) {
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(null);
   const [currentRadius, setCurrentRadius] = useState(radius);
+  const [selectedCategory, setSelectedCategory] = useState(category);
   const [currentPage, setCurrentPage] = useState(1);
-  const [mapRegion, setMapRegion] = useState({
-    latitude,
-    longitude,
-    latitudeDelta: calculateDelta(radius),
-    longitudeDelta: calculateDelta(radius),
-  });
 
   const handleLandmarkPress = (landmark: Landmark) => {
     setSelectedLandmark(selectedLandmark?.name === landmark.name ? null : landmark);
@@ -63,25 +61,24 @@ export default function MapViewWithLandmarks({
     setCurrentRadius(newRadius);
     setSelectedLandmark(null);
     setCurrentPage(1);
-    // Update map region to zoom appropriately for new radius
-    setMapRegion({
-      latitude,
-      longitude,
-      latitudeDelta: calculateDelta(newRadius),
-      longitudeDelta: calculateDelta(newRadius),
-    });
     if (onRadiusChange) {
       onRadiusChange(newRadius);
     }
   };
 
-  // 🗑️ Removed handleCategoryChange - using Google Maps prominence ranking!
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setSelectedLandmark(null);
+    setCurrentPage(1);
+    if (onCategoryChange) {
+      onCategoryChange(categoryId);
+    }
+  };
 
   const getRadiusText = () => {
     return currentRadius >= 1000 ? `${currentRadius / 1000}km` : `${currentRadius}m`;
   };
 
-  // Landmarks are already filtered by category from the API
   const filteredLandmarks = landmarks;
 
   // Paginate landmarks
@@ -92,68 +89,45 @@ export default function MapViewWithLandmarks({
 
   const displayedLandmarks = selectedLandmark ? [selectedLandmark] : paginatedLandmarks;
 
+  // Google Maps static image URL
+  const mapImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=600x300&markers=color:blue%7C${latitude},${longitude}${filteredLandmarks
+    .slice(0, 10)
+    .map((l) => `&markers=color:red%7Csize:small%7C${l.latitude},${l.longitude}`)
+    .join('')}&key=YOUR_API_KEY`;
+
   return (
     <View>
-      {/* Map */}
-      <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          region={mapRegion}
-          onRegionChangeComplete={setMapRegion}
-          scrollEnabled={true}
-          zoomEnabled={true}
-          rotateEnabled={true}
-          pitchEnabled={true}>
-          {/* Radius circle */}
-          <Circle
-            center={{ latitude, longitude }}
-            radius={currentRadius}
-            strokeColor="rgba(102, 126, 234, 0.5)"
-            fillColor="rgba(102, 126, 234, 0.1)"
-            strokeWidth={2}
-          />
-
-          {/* Property marker */}
-          <Marker coordinate={{ latitude, longitude }} title={title}>
-            <View style={styles.propertyMarker}>
-              <Ionicons name="location" size={36} color="#667EEA" />
-            </View>
-          </Marker>
-
-          {/* Landmark markers */}
-          {filteredLandmarks.map((landmark, index) => {
-            const isSelected = selectedLandmark && selectedLandmark.name === landmark.name;
-            const shouldShow = !selectedLandmark || isSelected;
-
-            if (!shouldShow) return null;
-
-            return (
-              <Marker
-                key={`landmark-${index}`}
-                coordinate={{
-                  latitude: landmark.latitude,
-                  longitude: landmark.longitude,
-                }}
-                title={landmark.name}
-                description={`${landmark.type} • ${landmark.distance}km away`}>
-                <View style={styles.landmarkMarker}>
-                  <Ionicons
-                    name={getPlaceTypeIcon(landmark.type) as any}
-                    size={18}
-                    color="#667EEA"
-                  />
-                </View>
-              </Marker>
-            );
-          })}
-        </MapView>
+      {/* Map Placeholder for Web */}
+      <View style={[styles.mapContainer, { backgroundColor: colors.muted || '#f3f4f6' }]}>
+        <View style={styles.mapPlaceholder}>
+          <Text style={[styles.mapPlaceholderTitle, { color: colors.foreground }]}>
+            📍 Map View (Web Debug Mode)
+          </Text>
+          <Text style={[styles.mapPlaceholderText, { color: colors.mutedForeground }]}>
+            Location: {latitude.toFixed(6)}, {longitude.toFixed(6)}
+          </Text>
+          <Text style={[styles.mapPlaceholderText, { color: colors.mutedForeground }]}>
+            {title}
+          </Text>
+          <Text style={[styles.mapPlaceholderSubtext, { color: colors.mutedForeground }]}>
+            Maps are available on mobile devices
+          </Text>
+          <TouchableOpacity
+            style={[styles.openMapButton, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+              window.open(url, '_blank');
+            }}>
+            <Text style={styles.openMapButtonText}>Open in Google Maps</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Radius selector */}
       <View style={[styles.radiusContainer, { backgroundColor: colors.card }]}>
         <View style={styles.radiusHeader}>
           <View style={styles.radiusLabelContainer}>
-            <Ionicons name="radio-outline" size={16} color={colors.primary} />
+            <Text style={styles.radiusIcon}>📡</Text>
             <Text style={[styles.radiusLabel, { color: colors.foreground }]}>Search Radius</Text>
           </View>
           <View style={[styles.radiusBadge, { backgroundColor: colors.primary }]}>
@@ -162,7 +136,7 @@ export default function MapViewWithLandmarks({
         </View>
 
         <View style={styles.radiusButtons}>
-          {[200, 500, 750].map((radiusOption) => (
+          {[200, 500, 750, 1000, 1500, 2000].map((radiusOption) => (
             <TouchableOpacity
               key={radiusOption}
               style={[
@@ -187,15 +161,52 @@ export default function MapViewWithLandmarks({
         </View>
       </View>
 
-      {/* 🗺️ Category filters removed - now using Google Maps prominence ranking! */}
+      {/* Category filters */}
+      <View style={[styles.filterContainer, { backgroundColor: colors.card }]}>
+        <View style={styles.filterHeader}>
+          <Text style={styles.filterIcon}>🔍</Text>
+          <Text style={[styles.filterLabel, { color: colors.foreground }]}>Place Category</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterChips}>
+          {CATEGORY_FILTERS.map((filter) => (
+            <TouchableOpacity
+              key={filter.id}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor:
+                    selectedCategory === filter.id ? colors.primary : colors.background,
+                  borderColor:
+                    selectedCategory === filter.id ? colors.primary : colors.border || '#e5e7eb',
+                },
+              ]}
+              onPress={() => handleCategoryChange(filter.id)}>
+              <Text style={styles.filterChipIcon}>{filter.icon}</Text>
+              <Text
+                style={[
+                  styles.filterChipText,
+                  { color: selectedCategory === filter.id ? '#fff' : colors.foreground },
+                ]}>
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Landmarks count */}
       {!isLoading && (
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-          <Ionicons name="location-outline" size={18} color={colors.primary} />
+          <Text style={styles.infoIcon}>📍</Text>
           <Text style={[styles.infoText, { color: colors.foreground }]}>
-            {filteredLandmarks.length} {filteredLandmarks.length === 1 ? 'place' : 'places'} •{' '}
-            {getRadiusText()} radius
+            {filteredLandmarks.length} {filteredLandmarks.length === 1 ? 'place' : 'places'}
+            {selectedCategory !== 'essentials' &&
+              selectedCategory !== 'all' &&
+              ` (${selectedCategory})`}{' '}
+            • {getRadiusText()} radius
           </Text>
         </View>
       )}
@@ -252,11 +263,7 @@ export default function MapViewWithLandmarks({
                         borderColor: '#F59E0B',
                       },
                     ]}>
-                    <Ionicons
-                      name={getPlaceTypeIcon(landmark.type) as any}
-                      size={16}
-                      color={isSelected ? '#F59E0B' : colors.primary}
-                    />
+                    <Text style={styles.landmarkIcon}>📍</Text>
                   </View>
                   <View style={styles.landmarkInfo}>
                     <Text style={[styles.landmarkName, { color: colors.foreground }]}>
@@ -265,14 +272,8 @@ export default function MapViewWithLandmarks({
                     <Text style={[styles.landmarkDetails, { color: colors.mutedForeground }]}>
                       {landmark.type} • {landmark.distance}km away
                     </Text>
-                    {landmark.rating && (
-                      <Text style={[styles.landmarkRating, { color: colors.mutedForeground }]}>
-                        ⭐ {landmark.rating.toFixed(1)}{' '}
-                        {landmark.userRatingsTotal && `(${landmark.userRatingsTotal} reviews)`}
-                      </Text>
-                    )}
                   </View>
-                  {isSelected && <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />}
+                  {isSelected && <Text style={styles.checkmark}>✓</Text>}
                 </TouchableOpacity>
               );
             })}
@@ -333,7 +334,7 @@ export default function MapViewWithLandmarks({
 
       {!isLoading && landmarks.length === 0 && (
         <View style={[styles.emptyContainer, { backgroundColor: colors.card }]}>
-          <Ionicons name="location-outline" size={48} color={colors.mutedForeground} />
+          <Text style={styles.emptyIcon}>📍</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             No places found within {getRadiusText()}
           </Text>
@@ -350,20 +351,36 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
   },
-  map: {
-    width: '100%',
-    height: '100%',
-  },
-  propertyMarker: {
+  mapPlaceholder: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
   },
-  landmarkMarker: {
-    backgroundColor: 'white',
-    padding: 6,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#667EEA',
+  mapPlaceholderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  mapPlaceholderText: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  mapPlaceholderSubtext: {
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  openMapButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  openMapButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   radiusContainer: {
     borderRadius: 12,
@@ -380,6 +397,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  radiusIcon: {
+    fontSize: 16,
   },
   radiusLabel: {
     fontSize: 14,
@@ -417,6 +437,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     gap: 8,
+  },
+  infoIcon: {
+    fontSize: 18,
   },
   infoText: {
     fontSize: 14,
@@ -476,6 +499,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  landmarkIcon: {
+    fontSize: 16,
+  },
   landmarkInfo: {
     flex: 1,
   },
@@ -487,10 +513,9 @@ const styles = StyleSheet.create({
   landmarkDetails: {
     fontSize: 12,
   },
-  landmarkRating: {
-    fontSize: 11,
-    marginTop: 2,
-    fontWeight: '500',
+  checkmark: {
+    fontSize: 20,
+    color: '#F59E0B',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -498,6 +523,10 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
@@ -513,6 +542,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 12,
+  },
+  filterIcon: {
+    fontSize: 16,
   },
   filterLabel: {
     fontSize: 14,
@@ -530,6 +562,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     gap: 6,
+  },
+  filterChipIcon: {
+    fontSize: 14,
   },
   filterChipText: {
     fontSize: 12,

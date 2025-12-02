@@ -30,9 +30,9 @@ export default function DetailPost() {
   const userId = user?.id;
   const defaultAvatar = 'https://i.pravatar.cc/150';
 
-  // Radius and category state for landmarks
-  const [landmarkRadius, setLandmarkRadius] = useState(1000);
-  const [landmarkCategory, setLandmarkCategory] = useState<string>('essentials');
+  // Radius state for landmarks (optimized to 500m default, max 750m)
+  // 🗺️ No category state - using Google Maps prominence ranking!
+  const [landmarkRadius, setLandmarkRadius] = useState(500);
 
   // Fetch post details
   const {
@@ -45,16 +45,16 @@ export default function DetailPost() {
     enabled: !!id,
   });
 
-  // Fetch nearby landmarks using real Google Places API
+  // Fetch nearby landmarks using Google Places API (prominence ranking)
   const { data: nearbyLandmarks, isLoading: isLoadingLandmarks } = useQuery({
-    queryKey: ['landmarks', post?.latitude, post?.longitude, landmarkRadius, landmarkCategory],
+    queryKey: ['landmarks', post?.latitude, post?.longitude, landmarkRadius],
     queryFn: async () => {
       if (!post?.latitude || !post?.longitude) return [];
       return fetchLandmarksFromAPI({
         latitude: post.latitude,
         longitude: post.longitude,
         radius: landmarkRadius,
-        category: landmarkCategory as any,
+        // 🗺️ No category filter - using Google Maps prominence ranking!
       });
     },
     enabled: !!post?.latitude && !!post?.longitude,
@@ -248,8 +248,7 @@ export default function DetailPost() {
             colors={colors}
             radius={landmarkRadius}
             onRadiusChange={setLandmarkRadius}
-            category={landmarkCategory}
-            onCategoryChange={setLandmarkCategory}
+            // 🗺️ No category props - using Google Maps prominence ranking!
           />
         )}
 

@@ -68,7 +68,13 @@ export const deleteRequest = async (id: string, supabase: SupabaseClient<Databas
 };
 
 // requestService.ts
-export const updateRequest = async (requestId: string, supabase: SupabaseClient<Database>) => {
+export const updateRequest = async (
+  requestId: string,
+  supabase: SupabaseClient<Database>,
+  startDate?: Date,
+  endDate?: Date,
+  paymentDay?: number
+) => {
   // Get current state first
   const { data: existing, error: fetchError } = await supabase
     .from('requests')
@@ -100,34 +106,38 @@ export const updateRequest = async (requestId: string, supabase: SupabaseClient<
   }
 
   // Logic:
-  // 1️⃣ If not requested yet → mark requested = true
-  // 2️⃣ If requested but not confirmed yet → mark confirmed = true (and set rental dates if not set)
+  // 1️⃣ If not requested yet → mark requested = true (acknowledge)
+  // 2️⃣ If requested but not confirmed yet → mark confirmed = true (approve with dates)
   // 3️⃣ If already confirmed but missing rental dates → populate them now
   if (!existing.requested) {
     updateData = { requested: true };
   } else if (!existing.confirmed) {
-    // When confirming, set default rental dates if not already set
+    // When confirming, use provided dates OR fall back to defaults
     const now = new Date();
-    const endDate = new Date(now);
-    endDate.setMonth(endDate.getMonth() + 1); // Default 1 month rental
+    const defaultEnd = new Date(now);
+    defaultEnd.setMonth(defaultEnd.getMonth() + 1); // Default 1 month rental
 
     updateData = {
       confirmed: true,
-      rental_start_date: existing.rental_start_date || now.toISOString(),
-      rental_end_date: existing.rental_end_date || endDate.toISOString(),
-      payment_day_of_month: existing.payment_day_of_month || now.getDate(),
+      rental_start_date:
+        startDate?.toISOString() || existing.rental_start_date || now.toISOString(),
+      rental_end_date:
+        endDate?.toISOString() || existing.rental_end_date || defaultEnd.toISOString(),
+      payment_day_of_month: paymentDay || existing.payment_day_of_month || now.getDate(),
       monthly_rent_amount: existing.monthly_rent_amount || pricePerNight || 0,
     };
   } else if (existing.confirmed && (!existing.rental_start_date || !existing.rental_end_date)) {
     // Already confirmed but missing rental dates — populate them now
     const now = new Date();
-    const endDate = new Date(now);
-    endDate.setMonth(endDate.getMonth() + 1); // Default 1 month rental
+    const defaultEnd = new Date(now);
+    defaultEnd.setMonth(defaultEnd.getMonth() + 1); // Default 1 month rental
 
     updateData = {
-      rental_start_date: existing.rental_start_date || now.toISOString(),
-      rental_end_date: existing.rental_end_date || endDate.toISOString(),
-      payment_day_of_month: existing.payment_day_of_month || now.getDate(),
+      rental_start_date:
+        startDate?.toISOString() || existing.rental_start_date || now.toISOString(),
+      rental_end_date:
+        endDate?.toISOString() || existing.rental_end_date || defaultEnd.toISOString(),
+      payment_day_of_month: paymentDay || existing.payment_day_of_month || now.getDate(),
       monthly_rent_amount: existing.monthly_rent_amount || pricePerNight || 0,
     };
   } else {
@@ -204,6 +214,8 @@ type RequestWithUser = {
   post: Database['public']['Tables']['posts']['Row'] & { created_at: string }; // Assuming posts have created_at
   confirmed: boolean;
   created_at: string; // Add created_at for sorting later
+  rental_start_date?: string | null;
+  rental_end_date?: string | null;
 };
 
 export const fetchAllRequests = async (
@@ -240,6 +252,8 @@ export const fetchAllRequests = async (
     requested: r.requested ?? false,
     confirmed: r.confirmed ?? false,
     created_at: r.created_at, // Included for sorting in the component
+    rental_start_date: r.rental_start_date,
+    rental_end_date: r.rental_end_date,
   }));
 };
 
@@ -279,6 +293,8 @@ export const fetchApprovedRequestsByUser = async (
     requested: r.requested ?? false,
     confirmed: r.confirmed ?? false,
     created_at: r.created_at, // Included for sorting
+    rental_start_date: r.rental_start_date,
+    rental_end_date: r.rental_end_date,
   }));
 };
 
@@ -306,6 +322,8 @@ export const fetchRequestsByUser = async (
     requested: r.requested ?? false,
     confirmed: r.confirmed ?? false,
     created_at: r.created_at, // Included for sorting
+    rental_start_date: r.rental_start_date,
+    rental_end_date: r.rental_end_date,
   }));
 };
 
@@ -359,6 +377,18 @@ export const getRentalsDueForRating = async (
 export const getActiveRentals = async (userId: string, supabase: SupabaseClient<Database>) => {
   const now = new Date();
 
+  console.log('🔍 getActiveRentals called with userId:', userId);
+  console.log('🔍 Current date:', now.toISOString());
+
+  // First, let's get ALL confirmed rentals for this user to debug
+  const { data: allConfirmed } = await supabase
+    .from('requests')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('confirmed', true);
+
+  console.log('🔍 All confirmed rentals for user:', allConfirmed);
+
   const { data, error } = await supabase
     .from('requests')
     .select(
@@ -387,6 +417,48 @@ export const getActiveRentals = async (userId: string, supabase: SupabaseClient<
     .not('rental_end_date', 'is', null)
     .lte('rental_start_date', now.toISOString())
     .gte('rental_end_date', now.toISOString());
+
+  console.log('🔍 getActiveRentals result:', { data, error });
+
+  if (error) throw error;
+  return data ?? [];
+};
+
+/**
+ * Get upcoming rentals for a user (confirmed but not started yet)
+ */
+export const getUpcomingRentals = async (userId: string, supabase: SupabaseClient<Database>) => {
+  const now = new Date();
+
+  const { data, error } = await supabase
+    .from('requests')
+    .select(
+      `
+      id,
+      rental_start_date,
+      rental_end_date,
+      monthly_rent_amount,
+      payment_day_of_month,
+      post:post_id (
+        id,
+        title,
+        price_per_night,
+        user:user_id (id, firstname, lastname)
+      ),
+      user:user_id (
+        id,
+        firstname,
+        lastname
+      )
+    `
+    )
+    .eq('user_id', userId)
+    .eq('confirmed', true)
+    .not('rental_start_date', 'is', null)
+    .not('rental_end_date', 'is', null)
+    .gt('rental_start_date', now.toISOString()) // Start date is in the future
+    .gte('rental_end_date', now.toISOString()) // End date hasn't passed
+    .order('rental_start_date', { ascending: true }); // Earliest first
 
   if (error) throw error;
   return data ?? [];

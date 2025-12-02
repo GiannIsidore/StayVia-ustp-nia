@@ -1,72 +1,7 @@
 const GOOGLE_API_KEY = 'AIzaSyATT95hve7Zl8BinEMLqXKOKjPEH9UaUwo';
 
-// Define place type categories for filtering
-export const PLACE_TYPE_CATEGORIES = {
-  essentials: [
-    'restaurant',
-    'cafe',
-    'bakery',
-    'food',
-    'meal_takeaway',
-    'meal_delivery',
-    'supermarket',
-    'convenience_store',
-    'shopping_mall',
-    'store',
-    'pharmacy',
-    'bus_station',
-    'train_station',
-    'subway_station',
-    'transit_station',
-    'establishment',
-  ],
-  education: ['school', 'university', 'library', 'primary_school', 'secondary_school'],
-  health: [
-    'hospital',
-    'pharmacy',
-    'doctor',
-    'dentist',
-    'physiotherapist',
-    'health',
-    'veterinary_care',
-    'medical_lab',
-  ],
-  entertainment: [
-    'park',
-    'movie_theater',
-    'museum',
-    'art_gallery',
-    'tourist_attraction',
-    'amusement_park',
-    'zoo',
-    'aquarium',
-    'night_club',
-    'stadium',
-    'bowling_alley',
-    'casino',
-  ],
-  finance: ['bank', 'atm', 'finance', 'accounting', 'insurance_agency'],
-  services: [
-    'post_office',
-    'police',
-    'fire_station',
-    'local_government_office',
-    'courthouse',
-    'embassy',
-    'gym',
-    'spa',
-    'beauty_salon',
-    'hair_care',
-    'laundry',
-    'car_wash',
-    'car_repair',
-    'gas_station',
-    'parking',
-  ],
-  worship: ['church', 'mosque', 'temple', 'hindu_temple', 'synagogue', 'place_of_worship'],
-};
-
-export type PlaceCategory = keyof typeof PLACE_TYPE_CATEGORIES | 'all';
+// 🗺️ Using Google Maps prominence ranking - shows places like Google Maps does!
+// No custom categories needed - Google automatically ranks by importance/reviews/popularity
 
 export interface Landmark {
   name: string;
@@ -76,14 +11,18 @@ export interface Landmark {
   address: string;
   latitude: number;
   longitude: number;
+  // Prominence metadata (like Google Maps)
+  rating?: number; // Average star rating
+  userRatingsTotal?: number; // Number of reviews
+  businessStatus?: string; // OPERATIONAL, CLOSED_TEMPORARILY, etc.
+  priceLevel?: number; // 0-4 price indicator
 }
 
 export interface NearbyPlacesParams {
   latitude: number;
   longitude: number;
-  radius?: number; // in meters, default 1000 (1km)
-  category?: PlaceCategory; // Filter by category
-  customTypes?: string[]; // Custom types to filter (overrides category)
+  radius?: number; // in meters, default 500m (optimized)
+  // No category filtering - using Google Maps prominence ranking instead!
 }
 
 /**
@@ -114,68 +53,70 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
  * @returns Array of nearby landmarks
  */
 export async function fetchNearbyLandmarks(params: NearbyPlacesParams): Promise<Landmark[]> {
-  const { latitude, longitude, radius = 1000, category = 'essentials', customTypes } = params;
+  const { latitude, longitude, radius = 1000 } = params;
 
   try {
     const searchRadius = radius;
     let allResults: any[] = [];
-    let nextPageToken: string | null = null;
+    let nextPageToken: string | undefined;
+    let pageCount = 0;
+    const MAX_PAGES = 3; // Google allows up to 3 pages (60 results max)
 
-    // console.log(`[MapService] Fetching ALL places within ${searchRadius}m...`);
+    // 🗺️ Fetch multiple pages to get comprehensive results (up to 60 places)
+    do {
+      const url = nextPageToken
+        ? `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${nextPageToken}&key=${GOOGLE_API_KEY}`
+        : `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${searchRadius}&key=${GOOGLE_API_KEY}`;
 
-    // Fetch first page - NO type filter to get everything
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${searchRadius}&key=${GOOGLE_API_KEY}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', data.status, data.error_message);
-      throw new Error(data.error_message || 'Failed to fetch nearby places');
-    }
-
-    if (data.status === 'ZERO_RESULTS' || !data.results) {
-      console.log('[MapService] No places found in this area');
-      return [];
-    }
-
-    allResults = data.results;
-    nextPageToken = data.next_page_token;
-    // console.log(`[MapService] First page: ${data.results.length} places`);
-
-    // Fetch second page if available (wait 2 seconds as required by Google)
-    if (nextPageToken) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const nextUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${nextPageToken}&key=${GOOGLE_API_KEY}`;
-      const nextResponse = await fetch(nextUrl);
-      const nextData = await nextResponse.json();
-
-      if (nextData.status === 'OK' && nextData.results) {
-        // console.log(`[MapService] Second page: ${nextData.results.length} places`);
-        allResults = [...allResults, ...nextData.results];
-        nextPageToken = nextData.next_page_token;
+      if (pageCount > 0) {
+        console.log(`[MapService] Fetching page ${pageCount + 1}...`);
+        // Google requires 2 second delay between page requests
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      } else {
+        console.log(
+          `[MapService] Fetching ALL places within ${searchRadius}m (with pagination)...`
+        );
       }
-    }
 
-    // Fetch third page if available
-    if (nextPageToken) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const nextUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?pagetoken=${nextPageToken}&key=${GOOGLE_API_KEY}`;
-      const nextResponse = await fetch(nextUrl);
-      const nextData = await nextResponse.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
-      if (nextData.status === 'OK' && nextData.results) {
-        // console.log(`[MapService] Third page: ${nextData.results.length} places`);
-        allResults = [...allResults, ...nextData.results];
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        if (pageCount === 0) {
+          // Only throw on first page error
+          console.error('Google Places API error:', data.status, data.error_message);
+          throw new Error(data.error_message || 'Failed to fetch nearby places');
+        } else {
+          // For subsequent pages, just stop pagination
+          console.log(`[MapService] Page ${pageCount + 1} returned ${data.status}, stopping`);
+          break;
+        }
       }
-    }
 
-    console.log(`[MapService] Total API results: ${allResults.length} places`);
+      if (data.status === 'ZERO_RESULTS' || !data.results) {
+        console.log('[MapService] No more places found');
+        break;
+      }
+
+      allResults = allResults.concat(data.results);
+      nextPageToken = data.next_page_token;
+      pageCount++;
+
+      console.log(
+        `[MapService] Page ${pageCount}: Found ${data.results.length} places (total: ${allResults.length})`
+      );
+    } while (nextPageToken && pageCount < MAX_PAGES);
+
+    console.log(`[MapService] ✅ Total: ${allResults.length} places from ${pageCount} pages`);
+    console.log(
+      '[MapService] All places:',
+      allResults.map((p: any) => p.name)
+    );
 
     // Convert radius to km for filtering
     const radiusInKm = radius / 1000;
 
-    // Map ALL results with full type information
+    // 🗺️ Map ALL results with NO filtering (except distance)
     const allLandmarks: Landmark[] = allResults
       .map((place: any) => {
         const distance = calculateDistance(
@@ -189,13 +130,6 @@ export async function fetchNearbyLandmarks(params: NearbyPlacesParams): Promise<
         const primaryType = place.types?.[0] || 'place';
         const allTypes = place.types || [];
 
-        // console.log(
-        //   `[MapService] Found ${place.vicinity || place.name}: ${place.name}\n` +
-        //     `  - All types: ${JSON.stringify(allTypes)}\n` +
-        //     `  - Selected type: ${primaryType} -> ${formatPlaceType(primaryType)}\n` +
-        //     `  - Distance: ${distance}km`
-        // );
-
         return {
           name: place.name,
           type: formatPlaceType(primaryType),
@@ -204,53 +138,31 @@ export async function fetchNearbyLandmarks(params: NearbyPlacesParams): Promise<
           address: place.vicinity || place.formatted_address || '',
           latitude: place.geometry.location.lat,
           longitude: place.geometry.location.lng,
+          // ⭐ Metadata from Google
+          rating: place.rating,
+          userRatingsTotal: place.user_ratings_total,
+          businessStatus: place.business_status,
+          priceLevel: place.price_level,
         };
       })
       .filter((landmark: Landmark) => landmark.distance <= radiusInKm)
-      .sort((a: Landmark, b: Landmark) => a.distance - b.distance);
+      .sort((a: Landmark, b: Landmark) => a.distance - b.distance); // Sort by distance (closest first)
 
-    // console.log(`[MapService] Total landmarks within ${radiusInKm}km: ${allLandmarks.length}`);
+    console.log(`[MapService] Returning ${allLandmarks.length} places within ${radiusInKm}km`);
+    console.log(
+      '[MapService] Closest 5:',
+      allLandmarks.slice(0, 5).map((l) => `${l.name} (${l.distance}km)`)
+    );
 
-    // Filter by category or custom types
-    const filtered = filterLandmarksByCategory(allLandmarks, category, customTypes);
-
-    // console.log(`[MapService] Filtered to '${category}' category: ${filtered.length} places`);
-
-    return filtered;
+    return allLandmarks;
   } catch (error) {
     console.error('Error fetching nearby landmarks:', error);
     throw error;
   }
 }
 
-/**
- * Filter landmarks by category or custom types
- */
-function filterLandmarksByCategory(
-  landmarks: Landmark[],
-  category: PlaceCategory,
-  customTypes?: string[]
-): Landmark[] {
-  // If custom types provided, use those
-  if (customTypes && customTypes.length > 0) {
-    return landmarks.filter((landmark) =>
-      landmark.allTypes.some((type) => customTypes.includes(type))
-    );
-  }
-
-  // If 'all' category, return everything
-  if (category === 'all') {
-    return landmarks;
-  }
-
-  // Get types for the selected category
-  const typesToMatch = PLACE_TYPE_CATEGORIES[category] || PLACE_TYPE_CATEGORIES.essentials;
-
-  // Filter landmarks that have at least one matching type
-  return landmarks.filter((landmark) =>
-    landmark.allTypes.some((type) => typesToMatch.includes(type))
-  );
-}
+// 🗑️ Removed filterLandmarksByCategory() function
+// Now using Google Maps prominence ranking directly - no custom filtering needed!
 
 /**
  * Format place type for display

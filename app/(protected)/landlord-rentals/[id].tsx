@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/ui/button';
 import { updateRentalDates } from '@/services/requestService';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 
 export default function LandlordRentalDetailPage() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -27,8 +28,8 @@ export default function LandlordRentalDetailPage() {
   const { colors } = useAppTheme();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editStartDate, setEditStartDate] = useState<string>('');
-  const [editEndDate, setEditEndDate] = useState<string>('');
+  const [editStartDate, setEditStartDate] = useState<Date>(new Date());
+  const [editEndDate, setEditEndDate] = useState<Date>(new Date());
   const [editMonthlyAmount, setEditMonthlyAmount] = useState<string>('');
   const [editPaymentDay, setEditPaymentDay] = useState<string>('');
 
@@ -88,8 +89,8 @@ export default function LandlordRentalDetailPage() {
 
       return updateRentalDates(
         id,
-        new Date(editStartDate),
-        new Date(editEndDate),
+        editStartDate,
+        editEndDate,
         parseInt(editPaymentDay) || rental?.payment_day_of_month || 1,
         parseFloat(editMonthlyAmount) || rental?.monthly_rent_amount || 0,
         supabase
@@ -108,8 +109,8 @@ export default function LandlordRentalDetailPage() {
   });
 
   const handleEditStart = () => {
-    setEditStartDate(rental?.rental_start_date || '');
-    setEditEndDate(rental?.rental_end_date || '');
+    setEditStartDate(rental?.rental_start_date ? new Date(rental.rental_start_date) : new Date());
+    setEditEndDate(rental?.rental_end_date ? new Date(rental.rental_end_date) : new Date());
     setEditMonthlyAmount(rental?.monthly_rent_amount?.toString() || '');
     setEditPaymentDay(rental?.payment_day_of_month?.toString() || '1');
     setIsEditing(true);
@@ -270,47 +271,24 @@ export default function LandlordRentalDetailPage() {
               ✏️ Edit Rental Details
             </Text>
 
-            <View className="mb-4">
-              <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
-                Start Date (YYYY-MM-DD)
-              </Text>
-              <TextInput
-                value={editStartDate}
-                onChangeText={setEditStartDate}
-                placeholder="2024-01-01"
-                placeholderTextColor="#999"
-                style={{
-                  backgroundColor: colors.card,
-                  color: colors.foreground,
-                  borderColor: colors.border,
-                  borderWidth: 1,
-                  borderRadius: 8,
-                  padding: 10,
-                  fontFamily: 'System',
-                }}
-              />
-            </View>
+            <DatePickerInput
+              label="Start Date"
+              value={editStartDate}
+              onChange={setEditStartDate}
+              textColor={colors.foreground}
+              borderColor={colors.border}
+              backgroundColor={colors.card}
+            />
 
-            <View className="mb-4">
-              <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
-                End Date (YYYY-MM-DD)
-              </Text>
-              <TextInput
-                value={editEndDate}
-                onChangeText={setEditEndDate}
-                placeholder="2024-12-31"
-                placeholderTextColor="#999"
-                style={{
-                  backgroundColor: colors.card,
-                  color: colors.foreground,
-                  borderColor: colors.border,
-                  borderWidth: 1,
-                  borderRadius: 8,
-                  padding: 10,
-                  fontFamily: 'System',
-                }}
-              />
-            </View>
+            <DatePickerInput
+              label="End Date"
+              value={editEndDate}
+              onChange={setEditEndDate}
+              minimumDate={editStartDate}
+              textColor={colors.foreground}
+              borderColor={colors.border}
+              backgroundColor={colors.card}
+            />
 
             <View className="mb-4">
               <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>

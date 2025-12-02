@@ -14,7 +14,11 @@ import { useSupabase } from '@/lib/supabase';
 import { useAppTheme } from '@/lib/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getRentalsDueForRating, getActiveRentals } from '@/services/requestService';
+import {
+  getRentalsDueForRating,
+  getActiveRentals,
+  getUpcomingRentals,
+} from '@/services/requestService';
 
 export default function RatingsPage() {
   const { session } = useSession();
@@ -33,6 +37,7 @@ export default function RatingsPage() {
       if (userId) {
         queryClient.invalidateQueries({ queryKey: ['rentalsDueForRating', userId] });
         queryClient.invalidateQueries({ queryKey: ['activeRentals', userId] });
+        queryClient.invalidateQueries({ queryKey: ['upcomingRentals', userId] });
         queryClient.invalidateQueries({ queryKey: ['userRatings', userId] });
       }
     }, [userId, queryClient])
@@ -58,6 +63,16 @@ export default function RatingsPage() {
     enabled: !!userId,
   });
 
+  // Fetch upcoming rentals (confirmed but not started yet)
+  const { data: upcomingRentals, isLoading: isLoadingUpcoming } = useQuery({
+    queryKey: ['upcomingRentals', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      return getUpcomingRentals(userId, supabase);
+    },
+    enabled: !!userId,
+  });
+
   // Fetch existing ratings to determine which rentals are rated
   const { data: userRatings } = useQuery({
     queryKey: ['userRatings', userId],
@@ -74,6 +89,7 @@ export default function RatingsPage() {
     setRefreshing(true);
     await queryClient.refetchQueries({ queryKey: ['rentalsDueForRating', userId] });
     await queryClient.refetchQueries({ queryKey: ['activeRentals', userId] });
+    await queryClient.refetchQueries({ queryKey: ['upcomingRentals', userId] });
     await queryClient.refetchQueries({ queryKey: ['userRatings', userId] });
     setRefreshing(false);
   };
@@ -87,10 +103,18 @@ export default function RatingsPage() {
       return dateB.getTime() - dateA.getTime(); // Most recent first
     });
 
+  // Process upcoming rentals separately
+  const upcomingRentalsList = (upcomingRentals || []).sort((a: any, b: any) => {
+    const dateA = new Date(a.rental_start_date || '');
+    const dateB = new Date(b.rental_start_date || '');
+    return dateA.getTime() - dateB.getTime(); // Earliest first
+  });
+
   // Debug: log the final rentals array
   console.log('All rentals:', allRentals);
   console.log('Rentals due for rating:', rentalsDueForRating);
   console.log('Active rentals:', activeRentals);
+  console.log('Upcoming rentals:', upcomingRentalsList);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '';
@@ -119,7 +143,7 @@ export default function RatingsPage() {
     );
   };
 
-  const getRentalCard = (rental: any) => {
+  const getRentalCard = (rental: any, isUpcoming = false) => {
     // Debug: log rental structure
     console.log('Rental data:', rental);
 
@@ -128,9 +152,12 @@ export default function RatingsPage() {
 
     // Check if this rental has been rated
     const rating = (userRatings || []).find((r: any) => r.post_id === postId);
-    const showRateButton = !rating;
+    const showRateButton = !rating && !isUpcoming; // Can't rate upcoming rentals
 
     const handlePress = () => {
+      // Only allow rating for active rentals, not upcoming ones
+      if (isUpcoming) return;
+
       console.log('Pressed rental:', rental.id, 'Post ID:', postId);
       router.push({
         pathname: `/(protected)/ratings/[id]`,
@@ -142,13 +169,23 @@ export default function RatingsPage() {
       <TouchableOpacity
         key={rental.id}
         onPress={handlePress}
+        disabled={isUpcoming}
         className="mb-3 rounded-lg border p-4"
-        style={{ borderColor: colors.border, backgroundColor: colors.card }}>
+        style={{
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          opacity: isUpcoming ? 0.8 : 1,
+        }}>
         {/* Property Title */}
         <View className="mb-2 flex-row items-center justify-between">
           <Text className="flex-1 text-lg font-bold" style={{ color: colors.foreground }}>
             {rental.post?.title || 'Property'}
           </Text>
+          {isUpcoming && (
+            <View className="ml-2 rounded-full bg-blue-500 px-2 py-1">
+              <Text className="text-xs font-bold text-white">Upcoming</Text>
+            </View>
+          )}
           {showRateButton && (
             <View className="ml-2 rounded-full bg-yellow-400 px-2 py-1">
               <Text className="text-xs font-bold text-gray-800">Rate Now</Text>
@@ -168,25 +205,45 @@ export default function RatingsPage() {
           </Text>
         )}
 
-        {/* Star Rating */}
-        <View className="mb-2 flex-row items-center gap-2">
-          {rating ? (
-            <>
-              {renderStars(rating.score)}
-              <Text className="text-sm font-semibold" style={{ color: colors.foreground }}>
-                {rating.score}.0
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text className="text-sm text-gray-400">Not Rated</Text>
-            </>
-          )}
-        </View>
+        {/* Star Rating or Upcoming Info */}
+        {!isUpcoming && (
+          <View className="mb-2 flex-row items-center gap-2">
+            {rating ? (
+              <>
+                {renderStars(rating.score)}
+                <Text className="text-sm font-semibold" style={{ color: colors.foreground }}>
+                  {rating.score}.0
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text className="text-sm text-gray-400">Not Rated</Text>
+              </>
+            )}
+          </View>
+        )}
+
+        {isUpcoming && (
+          <View className="mb-2">
+            <Text className="text-sm text-blue-600">
+              Starts in{' '}
+              {Math.ceil(
+                (new Date(rental.rental_start_date).getTime() - new Date().getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )}{' '}
+              days
+            </Text>
+          </View>
+        )}
 
         {/* Status Badge */}
         <View className="flex-row items-center gap-2">
-          {showRateButton ? (
+          {isUpcoming ? (
+            <>
+              <Ionicons name="time-outline" size={16} color="#3B82F6" />
+              <Text className="text-xs font-semibold text-blue-600">Move-in Scheduled</Text>
+            </>
+          ) : showRateButton ? (
             <>
               <Ionicons name="alert-circle" size={16} color="#FFB800" />
               <Text className="text-xs font-semibold text-yellow-600">Pending Review</Text>
@@ -202,7 +259,7 @@ export default function RatingsPage() {
     );
   };
 
-  const isLoading = isLoadingDue || isLoadingActive;
+  const isLoading = isLoadingDue || isLoadingActive || isLoadingUpcoming;
 
   if (isLoading && !refreshing) {
     return (
@@ -226,12 +283,25 @@ export default function RatingsPage() {
           <Text className="mt-1 text-sm text-gray-500">Rate your rental experiences</Text>
         </View>
 
-        {/* All Rentals */}
-        <View>
-          {/* Test button for debugging */}
-        
+        {/* Upcoming Rentals Section */}
+        {upcomingRentalsList.length > 0 && (
+          <View className="mb-6">
+            <Text className="mb-3 text-xl font-bold" style={{ color: colors.foreground }}>
+              📅 Upcoming Stays
+            </Text>
+            {upcomingRentalsList.map((rental) => getRentalCard(rental, true))}
+          </View>
+        )}
 
-          {allRentals.length === 0 ? (
+        {/* Active Rentals Section */}
+        <View>
+          {allRentals.length > 0 && (
+            <Text className="mb-3 text-xl font-bold" style={{ color: colors.foreground }}>
+              🏠 Active Stays
+            </Text>
+          )}
+
+          {allRentals.length === 0 && upcomingRentalsList.length === 0 ? (
             <View className="items-center justify-center py-12">
               <Ionicons name="home-outline" size={48} color={colors.foreground} />
               <Text className="mt-4 text-center text-gray-500">No stays yet</Text>
@@ -240,7 +310,7 @@ export default function RatingsPage() {
               </Text>
             </View>
           ) : (
-            allRentals.map((rental) => getRentalCard(rental))
+            allRentals.map((rental) => getRentalCard(rental, false))
           )}
         </View>
       </ScrollView>

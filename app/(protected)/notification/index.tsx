@@ -7,6 +7,9 @@ import {
   Alert,
   useColorScheme,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUser } from '@clerk/clerk-expo';
@@ -25,6 +28,7 @@ import { useRouter } from 'expo-router';
 import { AlertDialog } from '@/components/ui/alert-dialog';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 
 // Define the type for the verification notification for easier merging
 type VerificationNotification = {
@@ -50,6 +54,17 @@ export default function NotificationIndex() {
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+
+  // Approval modal state
+  const [approvalModalVisible, setApprovalModalVisible] = useState(false);
+  const [selectedRequestForApproval, setSelectedRequestForApproval] = useState<any>(null);
+  const [approvalStartDate, setApprovalStartDate] = useState<Date>(new Date());
+  const [approvalEndDate, setApprovalEndDate] = useState<Date>(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 1);
+    return date;
+  });
+  const [approvalPaymentDay, setApprovalPaymentDay] = useState('1');
 
   const defaultAvatar = 'https://i.pravatar.cc/150';
   const avatarUrl =
@@ -301,14 +316,46 @@ export default function NotificationIndex() {
   });
 
   const approveRequestMutation = useMutation({
-    mutationFn: async (requestId: string) => updateRequest(requestId, supabase),
+    mutationFn: async ({
+      requestId,
+      startDate,
+      endDate,
+      paymentDay,
+    }: {
+      requestId: string;
+      startDate?: Date;
+      endDate?: Date;
+      paymentDay?: number;
+    }) => updateRequest(requestId, supabase, startDate, endDate, paymentDay),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['requestsToMyPosts'] });
       queryClient.invalidateQueries({ queryKey: ['myRequests'] });
+      setApprovalModalVisible(false);
     },
   });
 
-  const handleApprove = (id: string) => approveRequestMutation.mutate(id);
+  const handleApprove = (item: any) => {
+    // If not requested yet → just acknowledge (no dates needed)
+    if (!item.requested) {
+      approveRequestMutation.mutate({
+        requestId: item.id,
+        startDate: undefined,
+        endDate: undefined,
+        paymentDay: undefined,
+      });
+    } else {
+      // If approving (requested=true, confirmed=false) → show date modal
+      const today = new Date();
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      setSelectedRequestForApproval(item);
+      setApprovalStartDate(today);
+      setApprovalEndDate(nextMonth);
+      setApprovalPaymentDay('1');
+      setApprovalModalVisible(true);
+    }
+  };
   const handleDelete = (id: string) => {
     setSelectedRequestId(id);
     setConfirmVisible(true);
@@ -491,7 +538,14 @@ export default function NotificationIndex() {
 
             {/* Status badge */}
             {(isRequestOwner || isPostOwner) && (item.requested || item.confirmed) && (
-              <View style={{ flexDirection: 'row', marginTop: 4, gap: 8 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  marginTop: 4,
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}>
                 <View
                   style={{
                     backgroundColor: item.confirmed ? '#4caf50' : '#ff9800',
@@ -504,6 +558,26 @@ export default function NotificationIndex() {
                     {item.confirmed ? 'Approved' : 'Acknowledged'}
                   </Text>
                 </View>
+
+                {/* Show dates if confirmed and viewing as student */}
+                {item.confirmed &&
+                  isRequestOwner &&
+                  item.rental_start_date &&
+                  item.rental_end_date && (
+                    <Text style={{ fontSize: 10, color: isDark ? '#aaa' : '#555' }}>
+                      📅{' '}
+                      {new Date(item.rental_start_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}{' '}
+                      -{' '}
+                      {new Date(item.rental_end_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  )}
               </View>
             )}
 
@@ -512,7 +586,7 @@ export default function NotificationIndex() {
               <View style={{ flexDirection: 'row', marginTop: 6, gap: 8 }}>
                 {!item.requested && (
                   <TouchableOpacity
-                    onPress={() => handleApprove(item.id)}
+                    onPress={() => handleApprove(item)}
                     style={{
                       backgroundColor: '#ff9800',
                       paddingHorizontal: 12,
@@ -526,7 +600,7 @@ export default function NotificationIndex() {
                 )}
                 {item.requested && !item.confirmed && (
                   <TouchableOpacity
-                    onPress={() => handleApprove(item.id)}
+                    onPress={() => handleApprove(item)}
                     style={{
                       backgroundColor: '#667EEA',
                       paddingHorizontal: 12,
@@ -615,6 +689,197 @@ export default function NotificationIndex() {
         onConfirm={confirmDelete}
         onCancel={() => setConfirmVisible(false)}
       />
+
+      {/* Approval Date Modal */}
+      <Modal
+        visible={approvalModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setApprovalModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              width: '100%',
+              backgroundColor: isDark ? '#1f1f1f' : '#fff',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              padding: 24,
+            }}>
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 16,
+              }}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold', color: isDark ? '#fff' : '#000' }}>
+                Approve Rental
+              </Text>
+              <TouchableOpacity onPress={() => setApprovalModalVisible(false)}>
+                <Ionicons name="close" size={24} color={isDark ? '#fff' : '#000'} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 400, marginBottom: 16 }}>
+              {/* Student & Property Info */}
+              <View
+                style={{
+                  marginBottom: 16,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#333' : '#ddd',
+                  padding: 12,
+                }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? '#fff' : '#000' }}>
+                  {selectedRequestForApproval?.user?.firstname}{' '}
+                  {selectedRequestForApproval?.user?.lastname}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+                  {selectedRequestForApproval?.post?.title}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 'bold',
+                    color: isDark ? '#fff' : '#000',
+                    marginTop: 8,
+                  }}>
+                  ₱{selectedRequestForApproval?.post?.price_per_night?.toLocaleString()}/month
+                </Text>
+              </View>
+
+              {/* Start Date */}
+              <DatePickerInput
+                label="Move-in Date (Start Date)"
+                value={approvalStartDate}
+                onChange={setApprovalStartDate}
+                textColor={isDark ? '#fff' : '#000'}
+                borderColor={isDark ? '#333' : '#ddd'}
+                backgroundColor={isDark ? '#2a2a2a' : '#f5f5f5'}
+              />
+
+              {/* End Date */}
+              <DatePickerInput
+                label="Lease End Date"
+                value={approvalEndDate}
+                onChange={setApprovalEndDate}
+                minimumDate={approvalStartDate}
+                textColor={isDark ? '#fff' : '#000'}
+                borderColor={isDark ? '#333' : '#ddd'}
+                backgroundColor={isDark ? '#2a2a2a' : '#f5f5f5'}
+              />
+
+              {/* Payment Day */}
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: isDark ? '#fff' : '#000',
+                    marginBottom: 8,
+                  }}>
+                  Payment Day of Month (1-31)
+                </Text>
+                <TextInput
+                  value={approvalPaymentDay}
+                  onChangeText={setApprovalPaymentDay}
+                  placeholder="1"
+                  placeholderTextColor="#999"
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  style={{
+                    backgroundColor: isDark ? '#2a2a2a' : '#f5f5f5',
+                    color: isDark ? '#fff' : '#000',
+                    borderColor: isDark ? '#333' : '#ddd',
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    padding: 10,
+                  }}
+                />
+              </View>
+
+              {/* Info Box */}
+              <View
+                style={{
+                  borderRadius: 8,
+                  backgroundColor: isDark ? '#1e3a5f' : '#e6f2ff',
+                  padding: 12,
+                }}>
+                <Text style={{ fontSize: 12, color: isDark ? '#aac8e4' : '#2563eb' }}>
+                  💡 Monthly rent will be set to ₱
+                  {selectedRequestForApproval?.post?.price_per_night?.toLocaleString()} and payment
+                  reminders will be created based on these dates.
+                </Text>
+              </View>
+            </ScrollView>
+
+            {/* Action Buttons */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setApprovalModalVisible(false)}
+                style={{
+                  flex: 1,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#333' : '#ddd',
+                  paddingVertical: 12,
+                }}>
+                <Text
+                  style={{
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    color: isDark ? '#fff' : '#000',
+                  }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  // Validate dates (already Date objects)
+                  const paymentDay = parseInt(approvalPaymentDay) || 1;
+
+                  if (approvalEndDate <= approvalStartDate) {
+                    Alert.alert('Invalid Dates', 'End date must be after start date');
+                    return;
+                  }
+                  if (paymentDay < 1 || paymentDay > 31) {
+                    Alert.alert('Invalid Payment Day', 'Payment day must be between 1-31');
+                    return;
+                  }
+
+                  approveRequestMutation.mutate({
+                    requestId: selectedRequestForApproval.id,
+                    startDate: approvalStartDate,
+                    endDate: approvalEndDate,
+                    paymentDay: paymentDay,
+                  });
+                }}
+                disabled={approveRequestMutation.isPending}
+                style={{
+                  flex: 1,
+                  borderRadius: 8,
+                  paddingVertical: 12,
+                  backgroundColor: approveRequestMutation.isPending ? '#9ca3af' : '#2563eb',
+                }}>
+                <Text
+                  style={{
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    color: '#fff',
+                  }}>
+                  {approveRequestMutation.isPending ? 'Approving...' : 'Approve Rental'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

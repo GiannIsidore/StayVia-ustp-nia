@@ -38,7 +38,7 @@ export default function LocationPicker({
   );
   const [landmarks, setLandmarks] = useState<Landmark[]>([]);
   const [loadingLandmarks, setLoadingLandmarks] = useState(false);
-  const [radiusSlider, setRadiusSlider] = useState(1000); // 1000m = 1km default
+  const [radiusSlider, setRadiusSlider] = useState(500); // 500m default (optimized)
   const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(null);
   const mapRef = useRef<MapView>(null);
 
@@ -156,9 +156,9 @@ export default function LocationPicker({
                   longitudeDelta: LONGITUDE_DELTA,
                 }
               : {
-                // if walay location mo default dri pede rana ma chang ang latitude og longtitude
+                  // if walay location mo default dri pede rana ma chang ang latitude og longtitude
                   latitude: 10.3157,
-                  longitude: 123.8854, 
+                  longitude: 123.8854,
                   latitudeDelta: LATITUDE_DELTA,
                   longitudeDelta: LONGITUDE_DELTA,
                 }
@@ -252,7 +252,7 @@ export default function LocationPicker({
           </View>
 
           <View style={styles.radiusButtons}>
-            {[200, 500, 750, 1000, 1500, 2000].map((radius) => (
+            {[200, 500, 750].map((radius) => (
               <TouchableOpacity
                 key={radius}
                 style={[
@@ -348,6 +348,12 @@ export default function LocationPicker({
                     <Text style={[styles.landmarkMeta, { color: colors.mutedForeground }]}>
                       {landmark.type} • {landmark.distance}km
                     </Text>
+                    {landmark.rating && (
+                      <Text style={[styles.landmarkRating, { color: colors.mutedForeground }]}>
+                        ⭐ {landmark.rating.toFixed(1)}{' '}
+                        {landmark.userRatingsTotal && `(${landmark.userRatingsTotal})`}
+                      </Text>
+                    )}
                   </View>
                   {isSelected ? (
                     <Ionicons name="close-circle" size={20} color="#F59E0B" />
@@ -534,6 +540,11 @@ const styles = StyleSheet.create({
   },
   landmarkMeta: {
     fontSize: 11,
+  },
+  landmarkRating: {
+    fontSize: 10,
+    marginTop: 2,
+    fontWeight: '500',
   },
   moreText: {
     fontSize: 12,
