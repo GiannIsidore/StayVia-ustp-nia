@@ -5,12 +5,12 @@ import { useSupabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { notificationService } from '@/services/notificationService';
 
-export const useRentalNotifications = () => {
+export const useRentalNotifications = (enabled: boolean = true) => {
   const { user } = useUser();
   const supabase = useSupabase();
   const router = useRouter();
 
-  // Setup notification tap handler
+  // Setup notification tap handler (always enable this for UX)
   useEffect(() => {
     const unsubscribe = notificationService.setupNotificationResponseListener((notification) => {
       const data = notification.request.content.data;
@@ -31,12 +31,15 @@ export const useRentalNotifications = () => {
   }, [router]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    // Only run if explicitly enabled and user is available
+    if (!enabled || !user?.id) return;
 
     let appStateSubscription: any;
 
     const checkAndSendNotifications = async () => {
       try {
+        if (!enabled) return; // Double check before making network requests
+
         const userId = user.id;
         console.log('🔍 Checking for rentals due for rating...', userId);
 
@@ -115,8 +118,10 @@ export const useRentalNotifications = () => {
       }
     };
 
-    // Check on app start
-    checkAndSendNotifications();
+    // Delay initial check to avoid blocking app startup
+    const initialCheckTimer = setTimeout(() => {
+      checkAndSendNotifications();
+    }, 3000); // Wait 3 seconds after mount
 
     // Listen for app state changes
     appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus) => {
@@ -127,7 +132,8 @@ export const useRentalNotifications = () => {
     });
 
     return () => {
+      clearTimeout(initialCheckTimer);
       appStateSubscription?.remove();
     };
-  }, [user?.id]);
+  }, [user?.id, enabled]);
 };

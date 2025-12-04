@@ -73,14 +73,27 @@ function Routes() {
     }
   }, [isLoaded, user?.id, isSignedIn]);
 
-  // Initialize rental notifications hook
-  useRentalNotifications();
+  // Initialize rental notifications hook (only when fully loaded and user exists)
+  const shouldInitNotifications = isLoaded && isSignedIn && userExists === true;
+  useRentalNotifications(shouldInitNotifications);
 
-  // Request notification permissions on app start
+  // Initialize rental notifications hook (only when signed in and user exists)
+  const shouldEnableNotifications = isLoaded && isSignedIn && userExists;
+
+  // Request notification permissions AFTER app is fully loaded (non-blocking)
   React.useEffect(() => {
-    console.log('📢 Requesting notification permissions...');
-    notificationService.getPushToken();
-  }, []);
+    if (shouldEnableNotifications) {
+      // Delay to avoid blocking the main thread
+      const timer = setTimeout(() => {
+        console.log('📢 Requesting notification permissions...');
+        notificationService.getPushToken().catch((err) => {
+          console.log('⚠️ Could not get push token:', err);
+        });
+      }, 2000); // Wait 2 seconds after app loads
+
+      return () => clearTimeout(timer);
+    }
+  }, [shouldEnableNotifications]);
 
   // Hide splash once Clerk is ready
   React.useEffect(() => {
@@ -89,11 +102,14 @@ function Routes() {
 
   const id = user?.id;
 
-  // Fetch user from Supabase
+  // Fetch user from Supabase with optimized caching
   const { data, error, isLoading } = useQuery({
     queryKey: ['users', id],
     queryFn: () => getUserById(id as string, supabase),
-    enabled: !!id,
+    enabled: !!id && isSignedIn, // Only fetch when signed in
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    retry: 1, // Only retry once on failure
   });
 
   // Set userExists safely inside useEffect

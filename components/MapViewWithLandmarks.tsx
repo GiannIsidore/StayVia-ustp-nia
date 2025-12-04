@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Landmark, getPlaceTypeIcon } from '@/services/mapService';
-import OpenStreetMap from './OpenStreetMap';
+import NativeMap from './NativeMap';
 
 interface MapViewWithLandmarksProps {
   latitude: number;
@@ -253,16 +253,23 @@ export default function MapViewWithLandmarks({
         }
         return true;
       })
-      .map((landmark) => ({
-        latitude: landmark.latitude,
-        longitude: landmark.longitude,
-        title: `${landmark.name} - ${landmark.type}`,
-        color: getCategoryColor(landmark.type),
-        category: landmark.type,
-        icon: getPlaceTypeIcon(landmark.type),
-        isPrimary: false, // This allows clustering
-      })),
+      .map((landmark) => {
+        const icon = getPlaceTypeIcon(landmark.type);
+        console.log(`📍 Marker for ${landmark.name} (${landmark.type}): icon=${icon}`);
+        return {
+          latitude: landmark.latitude,
+          longitude: landmark.longitude,
+          title: `${landmark.name} - ${landmark.type}`,
+          color: getCategoryColor(landmark.type),
+          category: landmark.type,
+          icon,
+          isPrimary: false, // This allows clustering
+        };
+      }),
   ];
+
+  console.log('🗺️ MapViewWithLandmarks - Creating', mapMarkers.length, 'markers');
+  console.log('🗺️ Property marker icon:', mapMarkers[0]?.icon);
 
   // Prepare circles
   const mapCircles = [
@@ -276,16 +283,9 @@ export default function MapViewWithLandmarks({
 
   return (
     <View style={styles.container}>
-      {/* Modern Map */}
-      <View 
-        style={styles.mapContainer}
-        onStartShouldSetResponder={() => Platform.OS === 'android'}
-        onMoveShouldSetResponder={() => Platform.OS === 'android'}
-        onResponderGrant={() => {}}
-        onResponderMove={() => {}}
-        onResponderRelease={() => {}}
-        onResponderTerminationRequest={() => false}>
-        <OpenStreetMap
+      {/* Native Map - using react-native-maps for better performance */}
+      <View style={styles.mapContainer}>
+        <NativeMap
           center={{ latitude, longitude }}
           zoom={15}
           markers={mapMarkers}

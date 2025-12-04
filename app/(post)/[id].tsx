@@ -11,14 +11,14 @@ import DownloadImage from '@/components/download/downloadImage';
 import DownloadPostImages from '@/components/download/downloadPostImages';
 import { useUser } from '@clerk/clerk-expo';
 import { insertRequestByUserId } from '@/services/requestService';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { fetchNearbyLandmarks as fetchLandmarksFromAPI } from '@/services/mapService';
-import MapViewWithLandmarks from '@/components/MapViewWithLandmarks';
 import { RatingsDisplay } from '@/components/RatingsDisplay';
 import { ratingService } from '@/services/ratingService';
 
 import { useAppTheme } from '@/lib/theme';
+import MapViewWithLandmarks from '@/components/MapViewWithLandmarks';
 
 export default function DetailPost() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -248,7 +248,6 @@ export default function DetailPost() {
             colors={colors}
             radius={landmarkRadius}
             onRadiusChange={setLandmarkRadius}
-            // 🗺️ No category props - using Google Maps prominence ranking!
           />
         )}
 

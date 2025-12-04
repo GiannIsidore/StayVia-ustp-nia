@@ -317,20 +317,7 @@ export default function Home() {
               <Ionicons name="filter-outline" size={18} color={colors.foreground} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => router.push('/(protected)/landlord-rentals')}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: colors.card,
-                borderRadius: 20,
-                padding: 10,
-                borderWidth: 1,
-                borderColor: colors.border,
-                marginLeft: 6,
-              }}>
-              <Ionicons name="key-outline" size={18} color={colors.foreground} />
-            </TouchableOpacity>
+           
           </View>
         </View>
 
@@ -571,28 +558,29 @@ export default function Home() {
         )}
       </View>
 
-      {/* Floating Add Post Button */}
-
-      <TouchableOpacity
-        onPress={() => router.push('/(post)')}
-        style={{
-          position: 'absolute',
-          bottom: 20,
-          right: 20,
-          backgroundColor: colors.primary,
-          width: 50,
-          height: 50,
-          borderRadius: 30,
-          justifyContent: 'center',
-          alignItems: 'center',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 4,
-          elevation: 5,
-        }}>
-        <Ionicons name="add" size={32} color="white" onPress={() => router.push('/(post)')} />
-      </TouchableOpacity>
+      {/* Floating Add Post Button - Only show for landlords */}
+      {currentAccountType === 'landlord' && (
+        <TouchableOpacity
+          onPress={() => router.push('/(post)')}
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            right: 20,
+            backgroundColor: colors.primary,
+            width: 50,
+            height: 50,
+            borderRadius: 30,
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            elevation: 5,
+          }}>
+          <Ionicons name="add" size={32} color="white" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
