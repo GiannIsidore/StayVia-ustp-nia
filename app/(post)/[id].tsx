@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { fetchNearbyLandmarks as fetchLandmarksFromAPI } from '@/services/mapService';
 import { RatingsDisplay } from '@/components/RatingsDisplay';
 import { ratingService } from '@/services/ratingService';
+import { getOrCreateConversation } from '@/services/conversationService';
 
 import { useAppTheme } from '@/lib/theme';
 import MapViewWithLandmarks from '@/components/MapViewWithLandmarks';
@@ -96,6 +97,36 @@ export default function DetailPost() {
   const handleRequestPost = () => {
     if (!isAvailable || isOwnPost) return;
     mutate();
+  };
+
+  // Message/Conversation mutation
+  const { mutate: startConversation, isPending: isStartingConversation } = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !post?.post_user?.id) {
+        throw new Error('User or post owner ID missing');
+      }
+      return getOrCreateConversation(supabase, user.id, post.post_user.id);
+    },
+    onSuccess: (conversation) => {
+      if (!post?.post_user) return;
+      
+      const userName = post.post_user.firstname || post.post_user.lastname
+        ? `${post.post_user.firstname ?? ''} ${post.post_user.lastname ?? ''}`.trim()
+        : post.post_user.username ?? 'Stayvia User';
+      
+      router.push(
+        `/(channel)/${conversation.id}?name=${encodeURIComponent(userName)}&avatar=${encodeURIComponent(post.post_user.avatar ?? '')}`
+      );
+    },
+    onError: (error: any) => {
+      console.error('Error creating or fetching conversation:', error.message);
+      Alert.alert('Error', 'Failed to start conversation. Please try again.');
+    },
+  });
+
+  const handleMessagePress = () => {
+    if (!user?.id || !post?.post_user?.id || isOwnPost) return;
+    startConversation();
   };
 
   // Button label logic (retains the logic from the previous turn)
@@ -226,9 +257,14 @@ export default function DetailPost() {
           )}
           {!isOwnPost && (
             <TouchableOpacity
-              onPress={() => router.push(`/(chat)/chat`)}
-              className="rounded-full bg-blue-600 p-3 shadow-md">
-              <Ionicons name="chatbubble" size={22} color="#fff" />
+              onPress={handleMessagePress}
+              disabled={isStartingConversation}
+              className={`rounded-full bg-blue-600 p-3 shadow-md ${isStartingConversation ? 'opacity-50' : ''}`}>
+              {isStartingConversation ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="chatbubble" size={22} color="#fff" />
+              )}
             </TouchableOpacity>
           )}
         </View>

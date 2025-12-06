@@ -150,6 +150,14 @@ export default function Home() {
 
   const currentAccountType = currentUser?.account_type;
 
+  // Filter baseTypes to show Post and Requests only for landlords
+  const visibleTypes = useMemo(() => {
+    if (currentAccountType === 'landlord') {
+      return baseTypes;
+    }
+    return baseTypes.filter((type) => type !== 'Post' && type !== 'Requests');
+  }, [currentAccountType]);
+
   // --------------------------
   // Fetch user requests
   // --------------------------
@@ -365,7 +373,7 @@ export default function Home() {
             paddingHorizontal: 16,
             marginTop: 8,
           }}>
-          {baseTypes.map((typeName) => {
+          {visibleTypes.map((typeName) => {
             const isSelected = selectedType === typeName;
             return (
               <TouchableOpacity

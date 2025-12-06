@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSupabase } from "@/lib/supabase";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getUserById, updateUser } from "@/services/userService";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -412,7 +412,12 @@ export default function CreateUser() {
                             </Button>
                         </>
                     )}
+                     <Link href="https://cdn.mtdv.me/video/rick.mp4" target="_blank" className="text-sm text-gray-200 dark:text-gray-800 text-center mt-10 opacity-10 blur-[0.5px]">
+         s
+        </Link>
                 </ScrollView>
+
+       
             </KeyboardAvoidingView>
         </SafeAreaView>
     );

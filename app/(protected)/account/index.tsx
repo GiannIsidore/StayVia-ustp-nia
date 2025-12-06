@@ -12,7 +12,7 @@ import {
 import FeatherIcon from "@expo/vector-icons/Feather";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import * as Location from "expo-location";
-import { router } from "expo-router";
+import { Link, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getUserById } from "@/services/userService";
 import { useQuery } from "@tanstack/react-query";
@@ -239,9 +239,6 @@ export default function Account() {
           </View>
         </View>
 
-        <Text className="text-sm text-gray-400 dark:text-gray-500 text-center mt-6 ">
-          Powered by 
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
