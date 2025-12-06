@@ -20,7 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase';
 import { fetchPostsWithUser } from '@/services/postService';
 import { fetchPostFavoritesByUserId } from '@/services/favorites';
-import { fetchRequestByUserId } from '@/services/requestService';
+import { fetchRequestByUserId, fetchAllRequests } from '@/services/requestService';
 import { useUser } from '@clerk/clerk-expo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -159,16 +159,28 @@ export default function Home() {
   }, [currentAccountType]);
 
   // --------------------------
-  // Fetch user requests
+  // Fetch user requests (for "Requests" badge count, actual viewing is in notifications)
   // --------------------------
   const {
     data: userRequests = [],
     isFetching: isFetchingRequests,
     refetch: refetchRequests,
   } = useQuery({
-    queryKey: ['requests', user?.id],
-    queryFn: () => (user ? fetchRequestByUserId(user.id, null, supabase) : Promise.resolve([])),
-    enabled: !!user,
+    queryKey: ['requests', user?.id, currentAccountType],
+    queryFn: async () => {
+      if (!user) return [];
+
+      // Landlords see requests for their posts
+      if (currentAccountType === 'landlord') {
+        const landlordPosts = posts.filter((post) => post.post_user?.id === user.id);
+        const postIds = landlordPosts.map((post) => post.id);
+        return fetchAllRequests(postIds, supabase);
+      }
+
+      // Students/tenants see their own requests
+      return fetchRequestByUserId(user.id, null, supabase);
+    },
+    enabled: !!user && !!currentAccountType && posts.length > 0,
   });
 
   // --------------------------
@@ -187,6 +199,7 @@ export default function Home() {
       } else if (selectedType === 'Post') {
         filtered = posts.filter((post) => post.post_user?.id === user?.id);
       } else if (selectedType === 'Requests') {
+        // This is now handled by navigation, but keep this for backwards compatibility
         filtered =
           userRequests?.map((req) => req.post).filter((p): p is NonNullable<typeof p> => !!p) ?? [];
       } else if (selectedType !== 'Rent') {
@@ -324,8 +337,6 @@ export default function Home() {
               }}>
               <Ionicons name="filter-outline" size={18} color={colors.foreground} />
             </TouchableOpacity>
-
-           
           </View>
         </View>
 
@@ -379,12 +390,16 @@ export default function Home() {
               <TouchableOpacity
                 key={typeName}
                 onPress={() => {
+                  // Navigate to notifications for Requests tab
+                  if (typeName === 'Requests') {
+                    router.push('/(protected)/notification');
+                    return;
+                  }
+
                   const newType = isSelected ? null : typeName;
                   setSelectedType(newType);
                   if (newType === 'Favorites') {
                     queryClient.invalidateQueries({ queryKey: ['favorites'] });
-                  } else if (newType === 'Requests') {
-                    queryClient.invalidateQueries({ queryKey: ['requests'] });
                   }
                 }}
                 style={{
