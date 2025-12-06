@@ -2,8 +2,6 @@ import {
   View,
   TextInput,
   Pressable,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -145,15 +143,11 @@ const handleTakePhoto = async () => {
   const isMessageEmpty = !message.trim() && !selectedImage;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={80}
+    <SafeAreaView
+      edges={["bottom"]}
+      className="px-4 pt-4 pb-1 gap-4 border-t"
+      style={{ backgroundColor: colors.card, borderTopColor: colors.border }}
     >
-      <SafeAreaView
-        edges={["bottom"]}
-        className="p-4 gap-4 border-t"
-        style={{ backgroundColor: colors.card, borderTopColor: colors.border }}
-      >
         {selectedImage && (
           <View className="w-32 h-32 relative">
             <DownloadMsgImages
@@ -175,7 +169,7 @@ const handleTakePhoto = async () => {
           </View>
         )}
 
-        <View className="flex-row items-center gap-2 pb-4">
+        <View className="flex-row items-center gap-2 pb-2">
           {/* Camera */}
           <Pressable
             onPress={handleTakePhoto}
@@ -223,8 +217,6 @@ const handleTakePhoto = async () => {
             />
           </Pressable>
         </View>
-
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

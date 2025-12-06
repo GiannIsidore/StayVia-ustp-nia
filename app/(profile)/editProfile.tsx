@@ -364,41 +364,12 @@ export default function CreateUser() {
                                                 setSelectedImage(result.assets[0].uri);
                                             }
                                         }}
-                                        className="p-3 rounded-xl border border-dashed border-gray-400 items-center justify-center mb-4 relative"
+                                        className="p-3 rounded-xl border border-dashed border-gray-400 items-center justify-center mb-4"
                                     >
-                                        {selectedImage ? (
-                                            <View>
-                                                <Image
-                                                    source={{ uri: selectedImage }}
-                                                    style={{
-                                                        width: 200,
-                                                        height: 200,
-                                                        borderRadius: 10,
-                                                        resizeMode: "cover",
-                                                    }}
-                                                />
-                                                <TouchableOpacity
-                                                    onPress={() => setSelectedImage(undefined)}
-                                                    style={{
-                                                        position: "absolute",
-                                                        top: 6,
-                                                        right: 6,
-                                                        backgroundColor: "rgba(0,0,0,0.7)",
-                                                        borderRadius: 9999,
-                                                        padding: 5,
-                                                    }}
-                                                >
-                                                    <Ionicons name="close" size={18} color="white" />
-                                                </TouchableOpacity>
-                                            </View>
+                                        {uploading ? (
+                                            <Skeleton className="h-8 w-48 mb-4 rounded" />
                                         ) : (
-                                            <View className="w-32 h-32 rounded bg-gray-200 items-center justify-center">
-                                                {uploading ? (
-                                                    <Skeleton className="h-8 w-48 mb-4 rounded" />
-                                                ) : (
-                                                    <Text className="text-gray-500">Tap to select image</Text>
-                                                )}
-                                            </View>
+                                            <Text className="text-gray-500">Tap to select image</Text>
                                         )}
                                     </TouchableOpacity>
                                 </>
