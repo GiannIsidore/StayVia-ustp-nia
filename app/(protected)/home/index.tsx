@@ -52,12 +52,12 @@ export default function Home() {
     { label: 'Above ₱8,000/month', min: 8000, max: Infinity },
   ];
 
-  const baseTypes = ['Rent', 'Post', 'Favorites', 'Requests'];
+  const baseTypes = ['Rent', 'Post', 'Favorites' /*, 'Requests'*/];
   const typeIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
     Rent: 'home-outline',
     Post: 'person-outline',
     Favorites: 'heart-outline',
-    Requests: 'help-outline',
+    // Requests: 'help-outline',
   };
 
   // --------------------------
@@ -155,7 +155,7 @@ export default function Home() {
     if (currentAccountType === 'landlord') {
       return baseTypes;
     }
-    return baseTypes.filter((type) => type !== 'Post' && type !== 'Requests');
+    return baseTypes.filter((type) => type !== 'Post' /*&& type !== 'Requests'*/);
   }, [currentAccountType]);
 
   // --------------------------
@@ -391,10 +391,10 @@ export default function Home() {
                 key={typeName}
                 onPress={() => {
                   // Navigate to notifications for Requests tab
-                  if (typeName === 'Requests') {
-                    router.push('/(protected)/notification');
-                    return;
-                  }
+                  // if (typeName === 'Requests') {
+                  //   router.push('/(protected)/notification');
+                  //   return;
+                  // }
 
                   const newType = isSelected ? null : typeName;
                   setSelectedType(newType);

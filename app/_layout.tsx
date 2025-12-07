@@ -7,15 +7,14 @@ import { PortalHost } from '@rn-primitives/portal';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme as useDeviceColorScheme } from 'nativewind';
 import * as React from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase';
 import { getUserById } from '@/services/userService';
 import { useRentalNotifications } from '@/hooks/useRentalNotifications';
 import { notificationService } from '@/services/notificationService';
 import Toast from 'react-native-toast-message';
+import { ThemeProvider as CustomThemeProvider, useTheme } from '@/lib/ThemeContext';
 
 const queryClient = new QueryClient();
 
@@ -27,34 +26,28 @@ export default function RootLayout() {
   if (!publishableKey) {
     throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in environment variables');
   }
-  const { colorScheme: deviceScheme } = useDeviceColorScheme();
-  const [theme, setTheme] = React.useState<'light' | 'dark' | 'system'>('system');
-
-  React.useEffect(() => {
-    AsyncStorage.getItem('themeMode').then((t) => {
-      if (t === 'light' || t === 'dark' || t === 'system') setTheme(t);
-    });
-  }, []);
-
-  const effectiveTheme: 'light' | 'dark' =
-    theme === 'system' ? (deviceScheme === 'dark' ? 'dark' : 'light') : theme;
-
-  const changeTheme = React.useCallback((t: 'light' | 'dark' | 'system') => {
-    setTheme(t);
-    AsyncStorage.setItem('themeMode', t);
-  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} telemetry={false}>
-        <ThemeProvider value={NAV_THEME[effectiveTheme] as any}>
-          <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
-          <Routes />
-          <PortalHost />
-          <Toast />
-        </ThemeProvider>
+        <CustomThemeProvider>
+          <ThemedApp />
+        </CustomThemeProvider>
       </ClerkProvider>
     </QueryClientProvider>
+  );
+}
+
+function ThemedApp() {
+  const { effectiveTheme } = useTheme();
+
+  return (
+    <ThemeProvider value={NAV_THEME[effectiveTheme] as any}>
+      <StatusBar style={effectiveTheme === 'dark' ? 'light' : 'dark'} />
+      <Routes />
+      <PortalHost />
+      <Toast />
+    </ThemeProvider>
   );
 }
 

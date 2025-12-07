@@ -1,60 +1,50 @@
-import { Tabs } from "expo-router";
-import { TouchableOpacity } from "react-native";
-import FeatherIcon from "@expo/vector-icons/Feather";
-import { router } from "expo-router";
+import { Stack } from 'expo-router';
 
-export default function TabsLayout() {
+export default function ProfileLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
-      <Tabs.Screen
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen
         name="editProfile"
         options={{
-          title: "Update Profile",
-          tabBarStyle: { display: "none" },
+          title: 'Update Profile',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="settings"
         options={{
-          title: "Account Settings",
-          tabBarStyle: { display: "none" },
+          title: 'Account Settings',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="about"
         options={{
-          title: "StayVia",
-          tabBarStyle: { display: "none" },
+          title: 'StayVia',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="help"
         options={{
-          title: "Help & FAQs",
-          tabBarStyle: { display: "none" },
+          title: 'Help & FAQs',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="contact"
         options={{
-          title: "Contact Support",
-          tabBarStyle: { display: "none" },
+          title: 'Contact Support',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="terms"
         options={{
-          title: "Terms & Conditions",
-          tabBarStyle: { display: "none" },
+          title: 'Terms & Conditions',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="privacy"
         options={{
-          title: "Privacy Policy",
-          tabBarStyle: { display: "none" },
+          title: 'Privacy Policy',
         }}
       />
-    </Tabs>
+    </Stack>
   );
 }
