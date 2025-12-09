@@ -62,6 +62,20 @@ export default function CreatePost() {
     beds: 'Single Occupancy',
   });
 
+  // Helper function to convert beds to numeric max_occupancy
+  const bedsToOccupancy = (beds: string): number => {
+    switch (beds) {
+      case 'Single Occupancy':
+        return 1;
+      case '2 Persons':
+        return 2;
+      case '3–4 Persons':
+        return 4;
+      default:
+        return 1;
+    }
+  };
+
   const uploadImage = async (localUri: string, bucket: string) => {
     try {
       setUploading(true);
@@ -131,6 +145,7 @@ export default function CreatePost() {
           longitude: location?.longitude,
           image: userPost || null,
           beds: form.beds,
+          max_occupancy: bedsToOccupancy(form.beds),
           filters: [...selectedUtilities, ...selectedFeatures],
         },
         supabase

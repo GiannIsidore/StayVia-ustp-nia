@@ -124,19 +124,18 @@ export const paymentService = {
   },
 
   /**
-   * Get all payments for a landlord in a specific month
+   * Get all payments for a landlord (optionally filtered by month)
+   * If month/year are not provided, returns ALL payments
    */
   async getPaymentsByLandlord(
     landlordId: string,
-    month: number,
-    year: number,
-    supabase: SupabaseClient<Database>
+    month?: number,
+    year?: number,
+    supabase?: SupabaseClient<Database>
   ) {
-    // Format dates using local time to avoid timezone shifts
-    const startDate = formatLocalDate(new Date(year, month, 1));
-    const endDate = formatLocalDate(new Date(year, month + 1, 0));
+    if (!supabase) throw new Error('Supabase client required');
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('payments')
       .select(
         `
@@ -146,10 +145,16 @@ export const paymentService = {
         request:request_id(id, rental_start_date, rental_end_date)
       `
       )
-      .eq('landlord_id', landlordId)
-      .gte('due_date', startDate)
-      .lte('due_date', endDate)
-      .order('due_date', { ascending: true });
+      .eq('landlord_id', landlordId);
+
+    // Only filter by month if provided
+    if (month !== undefined && year !== undefined) {
+      const startDate = formatLocalDate(new Date(year, month, 1));
+      const endDate = formatLocalDate(new Date(year, month + 1, 0));
+      query = query.gte('due_date', startDate).lte('due_date', endDate);
+    }
+
+    const { data, error } = await query.order('due_date', { ascending: true });
 
     if (error) throw error;
     return data ?? [];

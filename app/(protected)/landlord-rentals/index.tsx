@@ -43,7 +43,7 @@ export default function LandlordRentalsPage() {
     enabled: !!userId,
   });
 
-  // Fetch all approved requests for user's posts
+  // Fetch all approved requests for user's posts, grouped by property
   const {
     data: approvedRequests = [],
     isLoading: isLoadingRequests,
@@ -61,7 +61,7 @@ export default function LandlordRentalsPage() {
           `
           *,
           users:user_id(id, firstname, lastname, avatar, email),
-          posts:post_id(id, title, price_per_night)
+          posts:post_id(id, title, price_per_night, max_occupancy)
         `
         )
         .in('post_id', postIds)
@@ -75,7 +75,20 @@ export default function LandlordRentalsPage() {
       console.log('📋 Fetched approved rentals:', data?.length, 'rentals');
       console.log('📋 Post IDs queried:', postIds);
       console.log('📋 Rentals data:', data);
-      return data ?? [];
+
+      // Group by post_id
+      const grouped = (data ?? []).reduce((acc: Record<string, any[]>, rental) => {
+        const postId = rental.post_id;
+        if (!postId) return acc;
+
+        if (!acc[postId]) {
+          acc[postId] = [];
+        }
+        acc[postId].push(rental);
+        return acc;
+      }, {});
+
+      return grouped;
     },
     enabled: !!userId && !!userPosts?.length,
   });
@@ -223,12 +236,16 @@ export default function LandlordRentalsPage() {
 
         {/* Stats Card */}
         <View className="mb-6 rounded-lg p-4" style={{ backgroundColor: '#3B82F6' }}>
-          <Text className="text-3xl font-bold text-white">{approvedRequests.length}</Text>
-          <Text className="mt-1 text-sm text-blue-100">Active Rentals</Text>
+          <Text className="text-3xl font-bold text-white">
+            {Object.values(approvedRequests).flat().length}
+          </Text>
+          <Text className="mt-1 text-sm text-blue-100">
+            Active Rentals across {Object.keys(approvedRequests).length} Properties
+          </Text>
         </View>
 
-        {/* Rentals List */}
-        {approvedRequests.length === 0 ? (
+        {/* Rentals List - Grouped by Property */}
+        {Object.keys(approvedRequests).length === 0 ? (
           <View className="items-center justify-center py-12">
             <Ionicons name="briefcase-outline" size={48} color={colors.foreground} />
             <Text className="mt-4 text-center text-gray-500">No active rentals</Text>
@@ -239,7 +256,33 @@ export default function LandlordRentalsPage() {
             </Text>
           </View>
         ) : (
-          approvedRequests.map((rental) => getRentalCard(rental))
+          Object.entries(approvedRequests).map(([postId, rentals]: [string, any[]]) => {
+            const firstRental = rentals[0];
+            const post = firstRental?.posts;
+            const maxOccupancy = post?.max_occupancy || 1;
+            const currentOccupancy = rentals.length;
+
+            return (
+              <View key={postId} className="mb-6">
+                {/* Property Header */}
+                <View className="mb-3 flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold" style={{ color: colors.foreground }}>
+                      {post?.title || 'Property'}
+                    </Text>
+                    {maxOccupancy > 1 && (
+                      <Text className="text-xs text-gray-500">
+                        {currentOccupancy} of {maxOccupancy} slots occupied
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Tenants for this property */}
+                {rentals.map((rental) => getRentalCard(rental))}
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>

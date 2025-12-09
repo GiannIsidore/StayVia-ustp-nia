@@ -42,17 +42,33 @@ export default function PaymentCalendarPage() {
   const month = currentDate.getMonth();
   const year = currentDate.getFullYear();
 
-  // Fetch payments for current month
-  const { data: payments = [], isLoading: isLoadingPayments } = useQuery({
-    queryKey: ['payments', userId, month, year],
+  // Fetch ALL payments (not filtered by month - we filter on client side)
+  const { data: allPayments = [], isLoading: isLoadingPayments } = useQuery({
+    queryKey: ['payments', userId],
     queryFn: async () => {
       if (!userId) return [];
-      const result = await paymentService.getPaymentsByLandlord(userId, month, year, supabase);
-      console.log('Payments fetched:', result);
+      const result = await paymentService.getPaymentsByLandlord(
+        userId,
+        undefined,
+        undefined,
+        supabase
+      );
+      console.log('All payments fetched:', result.length);
       return result;
     },
     enabled: !!userId,
   });
+
+  // Filter payments by current month for display
+  const payments = useMemo(() => {
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0);
+
+    return allPayments.filter((payment: any) => {
+      const paymentDate = new Date(payment.due_date);
+      return paymentDate >= startDate && paymentDate <= endDate;
+    });
+  }, [allPayments, month, year]);
 
   // Fetch stats
   const { data: stats } = useQuery({
@@ -67,10 +83,10 @@ export default function PaymentCalendarPage() {
   // Get unique tenants for filtering
   const tenants = useMemo(() => {
     const uniqueTenants = Array.from(
-      new Map(payments.map((p: any) => [p.tenant_id, p.tenant])).values()
+      new Map(allPayments.map((p: any) => [p.tenant_id, p.tenant])).values()
     );
     return uniqueTenants;
-  }, [payments]);
+  }, [allPayments]);
 
   // Filter payments by tenant
   const filteredPayments = useMemo(() => {
@@ -102,7 +118,7 @@ export default function PaymentCalendarPage() {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments', userId, month, year] });
+      queryClient.invalidateQueries({ queryKey: ['payments', userId] });
       queryClient.invalidateQueries({ queryKey: ['paymentStats', userId] });
       setShowPaymentModal(false);
       Alert.alert('Success', 'Payment updated successfully');
@@ -115,7 +131,7 @@ export default function PaymentCalendarPage() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await queryClient.refetchQueries({ queryKey: ['payments', userId, month, year] });
+    await queryClient.refetchQueries({ queryKey: ['payments', userId] });
     await queryClient.refetchQueries({ queryKey: ['paymentStats', userId] });
     setRefreshing(false);
   };
@@ -124,7 +140,7 @@ export default function PaymentCalendarPage() {
   useFocusEffect(
     React.useCallback(() => {
       onRefresh();
-    }, [userId, month, year])
+    }, [userId])
   );
 
   const goToPreviousMonth = () => {
@@ -328,7 +344,7 @@ export default function PaymentCalendarPage() {
         {/* Calendar View */}
         {viewMode === 'calendar' && (
           <PaymentCalendarView
-            payments={payments as any}
+            payments={allPayments as any}
             currentDate={currentDate}
             onDateSelected={(date) => setSelectedDate(date)}
             onPaymentSelected={(payment) => openPaymentModal(payment)}
@@ -356,12 +372,12 @@ export default function PaymentCalendarPage() {
               <Text
                 className="font-semibold"
                 style={{ color: selectedTenant === null ? '#fff' : colors.foreground }}>
-                All ({payments.length})
+                All ({allPayments.length})
               </Text>
             </TouchableOpacity>
 
             {tenants.map((tenant: any) => {
-              const tenantPayments = payments.filter((p: any) => p.tenant_id === tenant.id);
+              const tenantPayments = allPayments.filter((p: any) => p.tenant_id === tenant.id);
               return (
                 <TouchableOpacity
                   key={tenant.id}
@@ -401,9 +417,9 @@ export default function PaymentCalendarPage() {
                   ? 'No payments for this date'
                   : 'No payments for this period'}
               </Text>
-              {payments.length > 0 && (
+              {allPayments.length > 0 && (
                 <Text className="mt-2 text-center text-sm text-gray-400">
-                  Found {payments.length} total payments but none match current filters
+                  Found {allPayments.length} total payments but none match current filters
                 </Text>
               )}
             </View>

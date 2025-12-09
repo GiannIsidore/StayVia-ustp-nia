@@ -5,6 +5,42 @@ import { paymentService } from './paymentService';
 import { notificationService } from './notificationService';
 
 // ---------------------------
+// CHECK AVAILABLE SLOTS
+// ---------------------------
+export const checkAvailableSlots = async (
+  postId: string,
+  supabase: SupabaseClient<Database>
+): Promise<{ available: number; max: number; canRequest: boolean }> => {
+  // Get post max occupancy
+  const { data: post, error: postError } = await supabase
+    .from('posts')
+    .select('max_occupancy')
+    .eq('id', postId)
+    .single();
+
+  if (postError) throw postError;
+  if (!post) throw new Error('Post not found');
+
+  // Count confirmed tenants
+  const { data: requests, error: reqError } = await supabase
+    .from('requests')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('confirmed', true);
+
+  if (reqError) throw reqError;
+
+  const confirmedCount = requests?.length || 0;
+  const availableSlots = post.max_occupancy - confirmedCount;
+
+  return {
+    available: availableSlots,
+    max: post.max_occupancy,
+    canRequest: availableSlots > 0,
+  };
+};
+
+// ---------------------------
 // INSERT REQUEST BY USER ID
 // ---------------------------
 export const insertRequestByUserId = async (
@@ -12,6 +48,25 @@ export const insertRequestByUserId = async (
   postId: string,
   supabase: SupabaseClient<Database>
 ) => {
+  // Check if user already has a request for this post
+  const { data: existing } = await supabase
+    .from('requests')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('post_id', postId)
+    .maybeSingle();
+
+  if (existing) {
+    throw new Error('You already have a request for this post');
+  }
+
+  // Check available slots
+  const slots = await checkAvailableSlots(postId, supabase);
+  if (!slots.canRequest) {
+    throw new Error('No available slots for this post');
+  }
+
+  // Insert request
   const { data, error } = await supabase
     .from('requests')
     .insert({

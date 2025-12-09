@@ -8,7 +8,7 @@ import { useAccountType } from './useAccountType';
 export const usePaymentNotifications = (enabled: boolean = true) => {
   const { user } = useUser();
   const supabase = useSupabase();
-  const { accountType } = useAccountType();
+  const { accountType, isLoading: accountTypeLoading } = useAccountType();
 
   useEffect(() => {
     // Only run if explicitly enabled and user is available
@@ -20,12 +20,19 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
       try {
         if (!enabled) return; // Double check before making network requests
 
+        // Wait for accountType to load before proceeding
+        if (accountTypeLoading || accountType === null || accountType === undefined) {
+          console.log('⏳ Waiting for account type to load...', {
+            accountType,
+            accountTypeLoading,
+          });
+          return;
+        }
+
         const userId = user.id;
         const isLandlord = accountType === 'landlord';
         const now = new Date();
         const today = now.toISOString().split('T')[0];
-
-        console.log('🔍 Checking for payment notifications...', { userId, isLandlord });
 
         // Calculate reminder dates
         const threeDaysFromNow = new Date(now);
@@ -35,6 +42,15 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
         const oneDayFromNow = new Date(now);
         oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
         const oneDayDate = oneDayFromNow.toISOString().split('T')[0];
+
+        console.log('🔍 Checking for payment notifications...', {
+          userId,
+          isLandlord,
+          accountType,
+          today,
+          threeDaysDate,
+          oneDayDate,
+        });
 
         // Query payments needing notifications
         if (isLandlord) {
@@ -48,6 +64,7 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
               amount,
               due_date,
               reminder_3day_sent,
+              notification_3day_id,
               tenant:tenant_id(firstname, lastname),
               post:post_id(title)
             `
@@ -55,6 +72,7 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
             .eq('landlord_id', userId)
             .eq('status', 'unpaid')
             .eq('reminder_3day_sent', false)
+            .is('notification_3day_id', null) // Only send if no scheduled notification exists
             .eq('due_date', threeDaysDate);
 
           if (threeDayPayments && threeDayPayments.length > 0) {
@@ -90,6 +108,7 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
               amount,
               due_date,
               reminder_1day_sent,
+              notification_1day_id,
               tenant:tenant_id(firstname, lastname),
               post:post_id(title)
             `
@@ -97,6 +116,7 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
             .eq('landlord_id', userId)
             .eq('status', 'unpaid')
             .eq('reminder_1day_sent', false)
+            .is('notification_1day_id', null) // Only send if no scheduled notification exists
             .eq('due_date', oneDayDate);
 
           if (oneDayPayments && oneDayPayments.length > 0) {
@@ -131,6 +151,7 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
               amount,
               due_date,
               reminder_duedate_sent,
+              notification_duedate_id,
               tenant:tenant_id(firstname, lastname),
               post:post_id(title)
             `
@@ -138,6 +159,7 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
             .eq('landlord_id', userId)
             .eq('status', 'unpaid')
             .eq('reminder_duedate_sent', false)
+            .is('notification_duedate_id', null) // Only send if no scheduled notification exists
             .eq('due_date', today);
 
           if (dueTodayPayments && dueTodayPayments.length > 0) {
@@ -207,8 +229,10 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
           }
         } else {
           // STUDENT/TENANT: Check payments they need to make
+          console.log('👨‍🎓 Running STUDENT notification checks for user:', userId);
+
           // 3-day reminders
-          const { data: threeDayPayments } = await supabase
+          const { data: threeDayPayments, error: threeDayError } = await supabase
             .from('payments')
             .select(
               `
@@ -216,13 +240,20 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
               amount,
               due_date,
               reminder_3day_sent,
+              notification_3day_id,
               post:post_id(title)
             `
             )
             .eq('tenant_id', userId)
             .eq('status', 'unpaid')
             .eq('reminder_3day_sent', false)
+            .is('notification_3day_id', null) // Only send if no scheduled notification exists
             .eq('due_date', threeDaysDate);
+
+          if (threeDayError) {
+            console.error('❌ Error fetching 3-day payments (student):', threeDayError);
+          }
+          console.log('📊 Student 3-day reminders found:', threeDayPayments?.length || 0);
 
           if (threeDayPayments && threeDayPayments.length > 0) {
             for (const payment of threeDayPayments) {
@@ -256,12 +287,14 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
               amount,
               due_date,
               reminder_1day_sent,
+              notification_1day_id,
               post:post_id(title)
             `
             )
             .eq('tenant_id', userId)
             .eq('status', 'unpaid')
             .eq('reminder_1day_sent', false)
+            .is('notification_1day_id', null) // Only send if no scheduled notification exists
             .eq('due_date', oneDayDate);
 
           if (oneDayPayments && oneDayPayments.length > 0) {
@@ -296,12 +329,14 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
               amount,
               due_date,
               reminder_duedate_sent,
+              notification_duedate_id,
               post:post_id(title)
             `
             )
             .eq('tenant_id', userId)
             .eq('status', 'unpaid')
             .eq('reminder_duedate_sent', false)
+            .is('notification_duedate_id', null) // Only send if no scheduled notification exists
             .eq('due_date', today);
 
           if (dueTodayPayments && dueTodayPayments.length > 0) {
@@ -391,5 +426,5 @@ export const usePaymentNotifications = (enabled: boolean = true) => {
       clearTimeout(initialCheckTimer);
       appStateSubscription?.remove();
     };
-  }, [user?.id, accountType, enabled, supabase]);
+  }, [user?.id, accountType, accountTypeLoading, enabled, supabase]);
 };

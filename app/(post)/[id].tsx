@@ -109,11 +109,12 @@ export default function DetailPost() {
     },
     onSuccess: (conversation) => {
       if (!post?.post_user) return;
-      
-      const userName = post.post_user.firstname || post.post_user.lastname
-        ? `${post.post_user.firstname ?? ''} ${post.post_user.lastname ?? ''}`.trim()
-        : post.post_user.username ?? 'Stayvia User';
-      
+
+      const userName =
+        post.post_user.firstname || post.post_user.lastname
+          ? `${post.post_user.firstname ?? ''} ${post.post_user.lastname ?? ''}`.trim()
+          : (post.post_user.username ?? 'Stayvia User');
+
       router.push(
         `/(channel)/${conversation.id}?name=${encodeURIComponent(userName)}&avatar=${encodeURIComponent(post.post_user.avatar ?? '')}`
       );
@@ -129,9 +130,14 @@ export default function DetailPost() {
     startConversation();
   };
 
-  // Button label logic (retains the logic from the previous turn)
+  // Button label logic with multi-tenant support
   const [buttonLabel, setButtonLabel] = useState('Request Rental');
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [occupancyInfo, setOccupancyInfo] = useState<{
+    current: number;
+    max: number;
+    available: number;
+  }>({ current: 0, max: 1, available: 1 });
 
   useEffect(() => {
     // Ensure postRequests is an array for consistent handling
@@ -141,16 +147,31 @@ export default function DetailPost() {
         : [postRequests]
       : [];
 
-    const myRequest = requestsArray.find((req) => req.user_id === userId);
-    // Check if ANY request exists that is NOT the current user's request
-    const otherUserHasRequested = requestsArray.some((req) => req.user_id !== userId);
+    // Count confirmed tenants (only confirmed requests count toward occupancy)
+    const confirmedCount = requestsArray.filter((r) => r.confirmed === true).length;
+    const maxOccupancy = post?.max_occupancy || 1;
+    const availableSlots = maxOccupancy - confirmedCount;
 
-    if (!isAvailable || otherUserHasRequested) {
+    setOccupancyInfo({
+      current: confirmedCount,
+      max: maxOccupancy,
+      available: availableSlots,
+    });
+
+    // Find current user's request
+    const myRequest = requestsArray.find((req) => req.user_id === userId);
+
+    // Check if slots are available
+    const slotsAvailable = availableSlots > 0;
+
+    // Post marked as unavailable by landlord
+    if (!isAvailable) {
       setButtonLabel('Unavailable');
       setButtonDisabled(true);
       return;
     }
 
+    // User already has a request
     if (myRequest) {
       if (myRequest.confirmed) {
         setButtonLabel('Approved / Stays');
@@ -165,9 +186,19 @@ export default function DetailPost() {
       return;
     }
 
-    setButtonLabel('Request Rental');
+    // No slots available
+    if (!slotsAvailable) {
+      setButtonLabel('Fully Occupied');
+      setButtonDisabled(true);
+      return;
+    }
+
+    // Slots available and user hasn't requested
+    setButtonLabel(
+      `Request Rental (${availableSlots} slot${availableSlots !== 1 ? 's' : ''} left)`
+    );
     setButtonDisabled(false);
-  }, [postRequests, userId, isAvailable]);
+  }, [postRequests, userId, isAvailable, post?.max_occupancy]);
 
   // Safe cast: only keep string filters from jsonb
   const filters: string[] = Array.isArray(post?.filters)
@@ -291,6 +322,19 @@ export default function DetailPost() {
           <Text className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
             Monthly: ₱ {post.price_per_night}
           </Text>
+        )}
+
+        {/* Multi-Tenant Occupancy Info */}
+        {occupancyInfo.max > 1 && (
+          <View className="mb-4 rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+            <Text className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+              Multi-Tenant Property
+            </Text>
+            <Text className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+              {occupancyInfo.current} of {occupancyInfo.max} slots occupied
+              {occupancyInfo.available > 0 && ` • ${occupancyInfo.available} available`}
+            </Text>
+          </View>
         )}
 
         {post.description && (
