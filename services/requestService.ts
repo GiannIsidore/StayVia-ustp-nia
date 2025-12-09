@@ -206,6 +206,59 @@ export const updateRequest = async (
         );
 
         console.log('✅ Payments created successfully');
+
+        // Schedule payment notifications for each payment
+        try {
+          const payments = await paymentService.getPaymentsByRequest(requestId, supabase);
+
+          // Get tenant name for notifications
+          const { data: tenant } = await supabase
+            .from('users')
+            .select('firstname, lastname')
+            .eq('id', existing.user_id)
+            .single();
+
+          const tenantName = tenant ? `${tenant.firstname} ${tenant.lastname}` : 'Tenant';
+
+          // Get landlord name for notifications
+          const { data: landlord } = await supabase
+            .from('users')
+            .select('firstname, lastname')
+            .eq('id', landlordId)
+            .single();
+
+          const landlordName = landlord ? `${landlord.firstname} ${landlord.lastname}` : 'Landlord';
+
+          // Get post title for notifications
+          const { data: post } = await supabase
+            .from('posts')
+            .select('title')
+            .eq('id', existing.post_id)
+            .single();
+
+          const postTitle = post?.title || 'Your rental';
+
+          console.log(`📅 Scheduling notifications for ${payments.length} payments`);
+
+          for (const payment of payments) {
+            await paymentService.schedulePaymentNotifications(
+              payment.id,
+              payment.due_date,
+              payment.amount,
+              postTitle,
+              tenantName,
+              landlordName,
+              landlordId,
+              existing.user_id,
+              supabase
+            );
+          }
+
+          console.log('✅ Payment notifications scheduled successfully');
+        } catch (notificationError) {
+          console.error('Error scheduling payment notifications:', notificationError);
+          // Don't throw - rental confirmation should succeed even if notification scheduling fails
+        }
       } else {
         console.log('❌ Payment creation skipped. Missing required data:', {
           hasLandlordId: !!landlordId,

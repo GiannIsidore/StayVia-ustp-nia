@@ -1,5 +1,3 @@
-
-
 export interface Landmark {
   name: string;
   type: string;
@@ -141,10 +139,10 @@ function determinePrimaryType(tags: any): string {
 }
 
 //
-// 📌 Haversine distance
+// 📌 Haversine distance - High precision calculation
 //
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
+  const R = 6371; // Earth's radius in km
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
 
@@ -154,7 +152,8 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  return Math.round(R * c * 10) / 10;
+  // Return high precision distance (3 decimal places for accuracy)
+  return Math.round(R * c * 1000) / 1000;
 }
 
 //
@@ -182,8 +181,12 @@ export async function fetchNearbyLandmarks(params: NearbyPlacesParams): Promise<
     // ❗ Avoid large bounding boxes (Overpass rate-limits these)
     const searchRadius = Math.min(Math.max(radius, 100), 3000); // Min 100m, Max 3000m
 
-    const latDelta = searchRadius / 111320;
-    const lonDelta = searchRadius / (111320 * Math.cos((latitude * Math.PI) / 180));
+    // Use the actual requested radius for bounding box to minimize over-fetching
+    // We'll filter precisely by distance in post-processing
+    const bboxRadius = radius; // Use exact radius instead of searchRadius for tighter bounds
+
+    const latDelta = bboxRadius / 111320;
+    const lonDelta = bboxRadius / (111320 * Math.cos((latitude * Math.PI) / 180));
 
     const bbox = [
       latitude - latDelta,
@@ -191,6 +194,8 @@ export async function fetchNearbyLandmarks(params: NearbyPlacesParams): Promise<
       latitude + latDelta,
       longitude + lonDelta,
     ].join(',');
+
+    console.log(`[MapService] Bounding box: ${bbox} (radius: ${bboxRadius}m)`);
 
     // 🧠 Comprehensive Overpass query for all relevant place types
     const overpassQuery = `
@@ -311,8 +316,14 @@ function processOverpassData(
 ): Landmark[] {
   try {
     const radiusKm = radius / 1000;
+    // Add a small buffer (2%) to account for rounding, but still filter strictly
+    const maxDistanceKm = radiusKm * 0.98; // 98% of radius to ensure strict filtering
     const seenNames = new Set<string>(); // Track duplicates
     const results: Landmark[] = [];
+
+    console.log(
+      `[MapService] Processing data with strict radius: ${radiusKm}km (max: ${maxDistanceKm}km)`
+    );
 
     for (const el of data.elements) {
       try {
@@ -326,9 +337,17 @@ function processOverpassData(
 
         if (!coords || !coords.lat || !coords.lon) continue;
 
-        // Calculate distance
+        // Calculate distance with high precision
         const dist = calculateDistance(latitude, longitude, coords.lat, coords.lon);
-        if (dist > radiusKm) continue;
+
+        // Strict filtering: only include landmarks within 98% of the radius
+        // This accounts for any rounding errors and ensures visual accuracy
+        if (dist > maxDistanceKm) {
+          console.log(
+            `[MapService] Filtered out: ${el.tags?.name || 'Unnamed'} at ${dist}km (exceeds ${maxDistanceKm}km)`
+          );
+          continue;
+        }
 
         const tags = el.tags || {};
 

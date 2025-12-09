@@ -387,6 +387,13 @@ export type Database = {
           payment_method: string | null;
           created_at: string;
           updated_at: string;
+          reminder_3day_sent: boolean;
+          reminder_1day_sent: boolean;
+          reminder_duedate_sent: boolean;
+          overdue_notif_sent: boolean;
+          notification_3day_id: string | null;
+          notification_1day_id: string | null;
+          notification_duedate_id: string | null;
         };
         Insert: {
           id?: string;
@@ -402,6 +409,13 @@ export type Database = {
           payment_method?: string | null;
           created_at?: string;
           updated_at?: string;
+          reminder_3day_sent?: boolean;
+          reminder_1day_sent?: boolean;
+          reminder_duedate_sent?: boolean;
+          overdue_notif_sent?: boolean;
+          notification_3day_id?: string | null;
+          notification_1day_id?: string | null;
+          notification_duedate_id?: string | null;
         };
         Update: {
           id?: string;
@@ -417,6 +431,13 @@ export type Database = {
           payment_method?: string | null;
           created_at?: string;
           updated_at?: string;
+          reminder_3day_sent?: boolean;
+          reminder_1day_sent?: boolean;
+          reminder_duedate_sent?: boolean;
+          overdue_notif_sent?: boolean;
+          notification_3day_id?: string | null;
+          notification_1day_id?: string | null;
+          notification_duedate_id?: string | null;
         };
         Relationships: [
           {

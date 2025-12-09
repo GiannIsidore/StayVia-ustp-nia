@@ -15,13 +15,26 @@ export const useRentalNotifications = (enabled: boolean = true) => {
     const unsubscribe = notificationService.setupNotificationResponseListener((notification) => {
       const data = notification.request.content.data;
 
+      // Rating-related notifications
       if (data.action === 'open_ratings') {
         // Navigate to ratings page when notification is tapped
         router.push('/(protected)/ratings');
-      } else if (data.action === 'open_payments') {
+      }
+      // Student payment notifications
+      else if (data.action === 'open_student_payments') {
+        router.push('/(protected)/ratings/payment-calendar');
+      }
+      // Landlord payment notifications
+      else if (data.action === 'open_landlord_payments') {
+        router.push('/(protected)/landlord-rentals/payment-calendar');
+      }
+      // Legacy payment action (fallback)
+      else if (data.action === 'open_payments') {
         // Navigate to payment schedule when payment notification is tapped
         router.push('/(protected)/landlord-rentals/payment-calendar');
-      } else if (data.action === 'open_calendar') {
+      }
+      // Calendar notifications
+      else if (data.action === 'open_calendar') {
         // Navigate to calendar page when calendar notification is tapped
         router.push('/(protected)/calendar');
       }

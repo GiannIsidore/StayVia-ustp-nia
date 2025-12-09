@@ -6,6 +6,7 @@ import React, { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase';
 import { getUserById } from '@/services/userService';
+import { usePaymentNotifications } from '@/hooks/usePaymentNotifications';
 
 function BouncyIcon({ name, focusedName, size, color, focused, bounceAnim }: any) {
   return (
@@ -38,6 +39,9 @@ export default function ProtectedTabsLayout() {
   const accountType = currentUser?.account_type;
   const isStudent = accountType !== 'landlord';
   const isLandlord = accountType === 'landlord';
+
+  // Enable payment notifications for all users
+  usePaymentNotifications(true);
 
   if (!isLoaded || isLoadingUser) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;

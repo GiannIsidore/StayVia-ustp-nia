@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, Tables } from '@/types/database.types';
+import { notificationService } from './notificationService';
 
 type Payment = Tables<'payments'>;
 
@@ -202,6 +203,14 @@ export const paymentService = {
       updateData.payment_method = paymentMethod;
     }
 
+    // If marking as paid, reset notification tracking flags
+    if (status === 'paid') {
+      updateData.reminder_3day_sent = false;
+      updateData.reminder_1day_sent = false;
+      updateData.reminder_duedate_sent = false;
+      updateData.overdue_notif_sent = false;
+    }
+
     const { data, error } = await supabase
       .from('payments')
       .update(updateData)
@@ -210,6 +219,17 @@ export const paymentService = {
       .single();
 
     if (error) throw error;
+
+    // Cancel scheduled notifications if payment is marked as paid
+    if (status === 'paid') {
+      try {
+        await this.cancelPaymentNotifications(paymentId, supabase);
+      } catch (cancelError) {
+        console.error('Error cancelling notifications:', cancelError);
+        // Don't throw - payment update should succeed even if notification cancellation fails
+      }
+    }
+
     return data;
   },
 
@@ -356,5 +376,88 @@ export const paymentService = {
 
     if (error && error.code !== 'PGRST116') throw error;
     return data ?? null;
+  },
+
+  /**
+   * Schedule notifications for a payment
+   */
+  async schedulePaymentNotifications(
+    paymentId: string,
+    dueDate: string,
+    amount: number,
+    postTitle: string,
+    tenantName: string,
+    landlordName: string,
+    landlordId: string,
+    tenantId: string,
+    supabase: SupabaseClient<Database>
+  ) {
+    try {
+      const { threeDayNotifId, oneDayNotifId, dueDateNotifId } =
+        await notificationService.schedulePaymentReminderNotifications(
+          paymentId,
+          dueDate,
+          amount,
+          postTitle,
+          tenantName,
+          landlordName,
+          landlordId,
+          tenantId
+        );
+
+      // Store notification IDs in database
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          notification_3day_id: threeDayNotifId,
+          notification_1day_id: oneDayNotifId,
+          notification_duedate_id: dueDateNotifId,
+        })
+        .eq('id', paymentId);
+
+      if (error) {
+        console.error('Error storing notification IDs:', error);
+      } else {
+        console.log('✅ Notification IDs stored for payment:', paymentId);
+      }
+    } catch (error) {
+      console.error('Error scheduling payment notifications:', error);
+    }
+  },
+
+  /**
+   * Cancel all scheduled notifications for a payment
+   */
+  async cancelPaymentNotifications(paymentId: string, supabase: SupabaseClient<Database>) {
+    try {
+      // Get notification IDs from database
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('notification_3day_id, notification_1day_id, notification_duedate_id')
+        .eq('id', paymentId)
+        .single();
+
+      if (payment) {
+        await notificationService.cancelPaymentNotifications(
+          payment.notification_3day_id,
+          payment.notification_1day_id,
+          payment.notification_duedate_id
+        );
+
+        // Clear notification IDs from database
+        await supabase
+          .from('payments')
+          .update({
+            notification_3day_id: null,
+            notification_1day_id: null,
+            notification_duedate_id: null,
+          })
+          .eq('id', paymentId);
+
+        console.log('✅ Cancelled notifications for payment:', paymentId);
+      }
+    } catch (error) {
+      console.error('Error cancelling payment notifications:', error);
+    }
   },
 };

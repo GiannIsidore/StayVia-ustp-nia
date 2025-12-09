@@ -32,7 +32,6 @@ const CATEGORY_FILTERS = [
   { id: 'all', label: 'All', icon: 'apps-outline' },
   { id: 'education', label: 'Education', icon: 'school-outline' },
   { id: 'health', label: 'Health', icon: 'medical-outline' },
-  { id: 'entertainment', label: 'Entertainment', icon: 'game-controller-outline' },
   { id: 'finance', label: 'Finance', icon: 'card-outline' },
   { id: 'services', label: 'Services', icon: 'construct-outline' },
   { id: 'worship', label: 'Worship', icon: 'heart-outline' },
@@ -81,8 +80,17 @@ export default function MapViewWithLandmarks({
     return currentRadius >= 1000 ? `${currentRadius / 1000}km` : `${currentRadius}m`;
   };
 
-  // Filter landmarks by category
+  // Filter landmarks by category AND verify they're within radius
   const filterByCategory = (landmark: Landmark, category: string): boolean => {
+    // First check: Verify landmark is actually within the selected radius
+    const radiusKm = currentRadius / 1000;
+    if (landmark.distance > radiusKm) {
+      console.warn(
+        `[MapView] Landmark ${landmark.name} at ${landmark.distance}km exceeds radius ${radiusKm}km - filtering out`
+      );
+      return false;
+    }
+
     // Check both the formatted type and all raw types from Google API
     const displayType = landmark.type.toLowerCase();
     const allTypes = landmark.allTypes?.map((t) => t.toLowerCase()) || [];
@@ -168,6 +176,20 @@ export default function MapViewWithLandmarks({
     filterByCategory(landmark, selectedCategory)
   );
 
+  // Log filtering results for debugging
+  console.log(
+    `[MapView] Radius: ${currentRadius}m (${currentRadius / 1000}km), Total landmarks: ${landmarks.length}, Filtered: ${filteredLandmarks.length}`
+  );
+
+  // Verify all filtered landmarks are within radius
+  const outOfRangeLandmarks = filteredLandmarks.filter((l) => l.distance > currentRadius / 1000);
+  if (outOfRangeLandmarks.length > 0) {
+    console.error(
+      `[MapView] Found ${outOfRangeLandmarks.length} landmarks outside radius!`,
+      outOfRangeLandmarks.map((l) => `${l.name}: ${l.distance}km`)
+    );
+  }
+
   // Paginate landmarks
   const totalPages = Math.ceil(filteredLandmarks.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -248,18 +270,25 @@ export default function MapViewWithLandmarks({
     // Landmark markers - These will cluster
     ...filteredLandmarks
       .filter((landmark) => {
-        if (selectedLandmark) {
-          return landmark.name === selectedLandmark.name;
+        // Double-check distance is within radius (safety check)
+        const isWithinRadius = landmark.distance <= currentRadius / 1000;
+        if (!isWithinRadius) {
+          console.warn(
+            `[MapView] Skipping marker for ${landmark.name} - outside radius (${landmark.distance}km > ${currentRadius / 1000}km)`
+          );
         }
-        return true;
+
+        if (selectedLandmark) {
+          return landmark.name === selectedLandmark.name && isWithinRadius;
+        }
+        return isWithinRadius;
       })
       .map((landmark) => {
         const icon = getPlaceTypeIcon(landmark.type);
-        console.log(`📍 Marker for ${landmark.name} (${landmark.type}): icon=${icon}`);
         return {
           latitude: landmark.latitude,
           longitude: landmark.longitude,
-          title: `${landmark.name} - ${landmark.type}`,
+          title: `${landmark.name} - ${landmark.type} (${landmark.distance}km)`,
           color: getCategoryColor(landmark.type),
           category: landmark.type,
           icon,
@@ -268,18 +297,21 @@ export default function MapViewWithLandmarks({
       }),
   ];
 
-  console.log('🗺️ MapViewWithLandmarks - Creating', mapMarkers.length, 'markers');
-  console.log('🗺️ Property marker icon:', mapMarkers[0]?.icon);
+  console.log(
+    `🗺️ MapViewWithLandmarks - Creating ${mapMarkers.length} markers (${mapMarkers.length - 1} landmarks within ${currentRadius}m radius)`
+  );
 
-  // Prepare circles
+  // Prepare circles - ensure radius matches exactly what we're filtering by
   const mapCircles = [
     {
       latitude,
       longitude,
-      radius: currentRadius,
+      radius: currentRadius, // This should match the filtering radius exactly
       color: '#667EEA',
     },
   ];
+
+  console.log(`🔵 Drawing circle with radius: ${currentRadius}m (${currentRadius / 1000}km)`);
 
   return (
     <View style={styles.container}>
