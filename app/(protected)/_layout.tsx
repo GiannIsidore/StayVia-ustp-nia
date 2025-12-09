@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSupabase } from '@/lib/supabase';
 import { getUserById } from '@/services/userService';
 import { usePaymentNotifications } from '@/hooks/usePaymentNotifications';
+import { usePaymentNotificationListeners } from '@/hooks/usePaymentNotificationListeners';
 
 function BouncyIcon({ name, focusedName, size, color, focused, bounceAnim }: any) {
   return (
@@ -42,6 +43,9 @@ export default function ProtectedTabsLayout() {
 
   // Enable payment notifications for all users
   usePaymentNotifications(true);
+
+  // Listen for scheduled notification delivery and update database flags
+  usePaymentNotificationListeners(true);
 
   if (!isLoaded || isLoadingUser) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;

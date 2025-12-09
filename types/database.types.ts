@@ -210,6 +210,7 @@ export type Database = {
           latitude: number | null;
           location: string | null;
           longitude: number | null;
+          max_occupancy: number;
           price_per_night: number | null;
           title: string;
           user_id: string | null;
@@ -225,6 +226,7 @@ export type Database = {
           latitude?: number | null;
           location?: string | null;
           longitude?: number | null;
+          max_occupancy?: number;
           price_per_night?: number | null;
           title: string;
           user_id?: string | null;
@@ -240,6 +242,7 @@ export type Database = {
           latitude?: number | null;
           location?: string | null;
           longitude?: number | null;
+          max_occupancy?: number;
           price_per_night?: number | null;
           title?: string;
           user_id?: string | null;
@@ -692,3 +695,13 @@ export const Constants = {
     Enums: {},
   },
 } as const;
+
+// Custom type for post occupancy tracking
+export type PostOccupancy = {
+  post_id: string;
+  title: string;
+  max_occupancy: number;
+  current_occupancy: number;
+  available_slots: number;
+  has_available_slots: boolean;
+};
