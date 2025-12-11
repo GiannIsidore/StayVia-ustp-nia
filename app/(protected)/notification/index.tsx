@@ -332,6 +332,24 @@ export default function NotificationIndex() {
       queryClient.invalidateQueries({ queryKey: ['myRequests'] });
       setApprovalModalVisible(false);
     },
+    onError: (error: any) => {
+      // Handle occupancy limit errors specifically
+      const errorMsg = error.message || error.toString();
+
+      if (errorMsg.includes('maximum occupancy') || errorMsg.includes('fully occupied')) {
+        Alert.alert(
+          'Cannot Start Rental',
+          'This property is at maximum occupancy. All available slots are currently filled.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to approve request. Please try again.');
+      }
+
+      // Refresh to show current state
+      queryClient.invalidateQueries({ queryKey: ['requestsToMyPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['myRequests'] });
+    },
   });
 
   const handleApprove = (item: any) => {
@@ -555,7 +573,7 @@ export default function NotificationIndex() {
                     borderRadius: 12,
                   }}>
                   <Text style={{ color: '#fff', fontSize: 10, fontWeight: '500' }}>
-                    {item.confirmed ? 'Approved' : 'Acknowledged'}
+                    {item.confirmed ? 'Started' : 'Inquired'}
                   </Text>
                 </View>
 
@@ -593,9 +611,7 @@ export default function NotificationIndex() {
                       paddingVertical: 6,
                       borderRadius: 8,
                     }}>
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>
-                      Acknowledge
-                    </Text>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>Inquire</Text>
                   </TouchableOpacity>
                 )}
                 {item.requested && !item.confirmed && (
@@ -607,7 +623,9 @@ export default function NotificationIndex() {
                       paddingVertical: 6,
                       borderRadius: 8,
                     }}>
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>Approve</Text>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>
+                      Start Rental
+                    </Text>
                   </TouchableOpacity>
                 )}
                 {item.confirmed && (
@@ -618,7 +636,7 @@ export default function NotificationIndex() {
                       paddingVertical: 6,
                       borderRadius: 8,
                     }}>
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>Approved</Text>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>Started</Text>
                   </View>
                 )}
 
@@ -716,7 +734,7 @@ export default function NotificationIndex() {
                 marginBottom: 16,
               }}>
               <Text style={{ fontSize: 20, fontWeight: 'bold', color: isDark ? '#fff' : '#000' }}>
-                Approve Rental
+                Start Rental
               </Text>
               <TouchableOpacity onPress={() => setApprovalModalVisible(false)}>
                 <Ionicons name="close" size={24} color={isDark ? '#fff' : '#000'} />
@@ -873,7 +891,7 @@ export default function NotificationIndex() {
                     fontWeight: '600',
                     color: '#fff',
                   }}>
-                  {approveRequestMutation.isPending ? 'Approving...' : 'Approve Rental'}
+                  {approveRequestMutation.isPending ? 'Starting...' : 'Start Rental'}
                 </Text>
               </TouchableOpacity>
             </View>

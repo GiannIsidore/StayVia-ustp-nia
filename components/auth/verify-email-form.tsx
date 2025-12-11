@@ -29,22 +29,32 @@ export function VerifyEmailForm() {
       });
 
       // If verification was completed, set the session to active
-      // and redirect the user
+      // and redirect the user to complete their profile
       if (signUpAttempt.status === 'complete') {
+        console.log('✅ Email verification complete, setting session active...');
+        console.log('Session ID:', signUpAttempt.createdSessionId);
+
         await setActive({ session: signUpAttempt.createdSessionId });
+
+        console.log('✅ Session set active, navigating to create user...');
+
+        // Navigate to profile completion (CreateUser page)
+        router.replace('/(createUser)');
         return;
       }
-      // TODO: Handle other statuses
       // If the status is not complete, check why. User may need to
       // complete further steps.
-      console.error(JSON.stringify(signUpAttempt, null, 2));
+      console.error('❌ Sign up attempt not complete:', JSON.stringify(signUpAttempt, null, 2));
+      setError('Verification incomplete. Please try again.');
     } catch (err) {
       // See https://go.clerk.com/mRUDrIe for more info on error handling
+      console.error('❌ Email verification error:', err);
       if (err instanceof Error) {
         setError(err.message);
         return;
       }
       console.error(JSON.stringify(err, null, 2));
+      setError('An error occurred during verification. Please try again.');
     }
   }
 
@@ -86,7 +96,7 @@ export function VerifyEmailForm() {
                 autoComplete="sms-otp"
                 textContentType="oneTimeCode"
                 onSubmitEditing={onSubmit}
-                textAlign='center'
+                textAlign="center"
               />
               {!error ? null : (
                 <Text className="text-sm font-medium text-destructive">{error}</Text>

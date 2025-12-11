@@ -60,6 +60,7 @@ export default function CreatePost() {
     description: '',
     price_per_night: '',
     beds: 'Single Occupancy',
+    terms_and_conditions: '',
   });
 
   // Helper function to convert beds to numeric max_occupancy
@@ -147,13 +148,20 @@ export default function CreatePost() {
           beds: form.beds,
           max_occupancy: bedsToOccupancy(form.beds),
           filters: [...selectedUtilities, ...selectedFeatures],
+          terms_and_conditions: form.terms_and_conditions || null,
         },
         supabase
       );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      setForm({ title: '', description: '', price_per_night: '', beds: 'Single Occupancy' });
+      setForm({
+        title: '',
+        description: '',
+        price_per_night: '',
+        beds: 'Single Occupancy',
+        terms_and_conditions: '',
+      });
       setSelectedUtilities([]);
       setSelectedFeatures([]);
       setSelectedImage(undefined);
@@ -369,6 +377,25 @@ export default function CreatePost() {
           onChange={setSelectedFeatures}
           colorScheme={colors}
         />
+
+        {/* Terms and Conditions */}
+        <FormInput
+          label="Terms & Conditions (Optional)"
+          placeholder="Enter any specific terms, rules, or conditions for tenants...
+Examples:
+• No smoking inside the property
+• Curfew at 10 PM on weekdays
+• Monthly cleaning required
+• Guest policy: Maximum 2 guests at a time"
+          multiline
+          value={form.terms_and_conditions}
+          onChangeText={(v) => setForm({ ...form, terms_and_conditions: v })}
+          colorScheme={colors}
+        />
+        <Text style={{ fontSize: 12, color: '#999', marginTop: -8, marginBottom: 16 }}>
+          These terms will be shown to students before they inquire about your property. If left
+          blank, default terms will be used.
+        </Text>
 
         {/* Location Picker */}
         <LocationPicker

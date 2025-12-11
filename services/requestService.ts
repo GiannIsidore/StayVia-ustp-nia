@@ -168,6 +168,18 @@ export const updateRequest = async (
   if (!existing.requested) {
     updateData = { requested: true };
   } else if (!existing.confirmed) {
+    // Check occupancy before confirming
+    // This provides immediate feedback before hitting the database trigger
+    if (existing.post_id) {
+      const slots = await checkAvailableSlots(existing.post_id, supabase);
+      if (!slots.canRequest) {
+        throw new Error(
+          `Cannot approve: Property is fully occupied (${slots.max} slots all filled). ` +
+            `Please check current occupancy status.`
+        );
+      }
+    }
+
     // When confirming, use provided dates OR fall back to defaults
     const now = new Date();
     const defaultEnd = new Date(now);

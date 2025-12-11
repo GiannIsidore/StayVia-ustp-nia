@@ -20,6 +20,7 @@ import { getOrCreateConversation } from '@/services/conversationService';
 
 import { useAppTheme } from '@/lib/theme';
 import MapViewWithLandmarks from '@/components/MapViewWithLandmarks';
+import TermsAgreementModal from '@/components/TermsAgreementModal';
 
 export default function DetailPost() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -34,6 +35,9 @@ export default function DetailPost() {
   // Radius state for landmarks (optimized to 500m default, max 750m)
   // 🗺️ No category state - using Google Maps prominence ranking!
   const [landmarkRadius, setLandmarkRadius] = useState(500);
+
+  // Terms modal state
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Fetch post details
   const {
@@ -96,6 +100,13 @@ export default function DetailPost() {
 
   const handleRequestPost = () => {
     if (!isAvailable || isOwnPost) return;
+    // Show terms modal first before making the request
+    setShowTermsModal(true);
+  };
+
+  // Handle terms acceptance - proceed with inquiry
+  const handleTermsAccepted = () => {
+    setShowTermsModal(false);
     mutate();
   };
 
@@ -174,10 +185,10 @@ export default function DetailPost() {
     // User already has a request
     if (myRequest) {
       if (myRequest.confirmed) {
-        setButtonLabel('Approved / Stays');
+        setButtonLabel('Started / Stays');
         setButtonDisabled(true);
       } else if (myRequest.requested) {
-        setButtonLabel('Acknowledged');
+        setButtonLabel('Inquired');
         setButtonDisabled(true);
       } else {
         setButtonLabel('Pending Request');
@@ -382,6 +393,20 @@ export default function DetailPost() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Terms Agreement Modal */}
+      <TermsAgreementModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onAccept={handleTermsAccepted}
+        terms={post?.terms_and_conditions}
+        propertyTitle={post?.title || ''}
+        landlordName={
+          `${post?.post_user?.firstname || ''} ${post?.post_user?.lastname || ''}`.trim() ||
+          post?.post_user?.username ||
+          'Property Owner'
+        }
+      />
     </SafeAreaView>
   );
 }
