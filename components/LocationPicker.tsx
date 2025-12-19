@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { fetchNearbyLandmarks, Landmark, getPlaceTypeIcon } from '@/services/mapService';
 import NativeMap from './NativeMap';
+import { useAccountType } from '@/hooks/useAccountType';
 
 export interface LocationData {
   latitude: number;
@@ -28,6 +29,7 @@ export default function LocationPicker({
   onLocationChange,
   colors,
 }: LocationPickerProps) {
+  const { accountType } = useAccountType();
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(
     initialLocation || null
   );
@@ -44,10 +46,10 @@ export default function LocationPicker({
   }, []);
 
   useEffect(() => {
-    if (selectedLocation) {
+    if (selectedLocation && accountType !== 'landlord') {
       fetchLandmarks(selectedLocation);
     }
-  }, [radiusSlider]);
+  }, [radiusSlider, accountType, selectedLocation]);
 
   // Hide instructions after first interaction
   useEffect(() => {
@@ -94,7 +96,9 @@ export default function LocationPicker({
   const handleLocationUpdate = async (newLocation: LocationData) => {
     setSelectedLocation(newLocation);
     onLocationChange(newLocation);
-    fetchLandmarks(newLocation);
+    if (accountType !== 'landlord') {
+      fetchLandmarks(newLocation);
+    }
   };
 
   const fetchLandmarks = async (location: LocationData) => {
@@ -139,26 +143,28 @@ export default function LocationPicker({
           icon: 'home-outline',
           isPrimary: true, // This prevents clustering
         },
-        // Landmark markers (will cluster)
-        ...landmarks
-          .filter((landmark) => {
-            if (selectedLandmark) {
-              return landmark.name === selectedLandmark.name;
-            }
-            return true;
-          })
-          .map((landmark) => ({
-            latitude: landmark.latitude,
-            longitude: landmark.longitude,
-            title: `${landmark.name} - ${landmark.type}`,
-            color: '#F59E0B',
-            icon: getPlaceTypeIcon(landmark.type),
-            isPrimary: false, // This allows clustering
-          })),
+        // Landmark markers (will cluster) - only show for non-landlords
+        ...(accountType !== 'landlord'
+          ? landmarks
+              .filter((landmark) => {
+                if (selectedLandmark) {
+                  return landmark.name === selectedLandmark.name;
+                }
+                return true;
+              })
+              .map((landmark) => ({
+                latitude: landmark.latitude,
+                longitude: landmark.longitude,
+                title: `${landmark.name} - ${landmark.type}`,
+                color: '#F59E0B',
+                icon: getPlaceTypeIcon(landmark.type),
+                isPrimary: false, // This allows clustering
+              }))
+          : []),
       ]
     : [];
 
-  const mapCircles = selectedLocation
+  const mapCircles = selectedLocation && accountType !== 'landlord'
     ? [
         {
           latitude: selectedLocation.latitude,
@@ -227,7 +233,7 @@ export default function LocationPicker({
           : 'Tap the map to set your property location'}
       </Text>
 
-      {selectedLocation && (
+      {selectedLocation && accountType !== 'landlord' && (
         <View style={[styles.radiusContainer, { backgroundColor: colors.card }]}>
           <View style={styles.radiusHeader}>
             <View style={styles.radiusLabelContainer}>
@@ -269,7 +275,7 @@ export default function LocationPicker({
         </View>
       )}
 
-      {selectedLocation && !loadingLandmarks && (
+      {selectedLocation && !loadingLandmarks && accountType !== 'landlord' && (
         <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
           <View style={styles.iconBadge}>
             <Ionicons name="location-outline" size={18} color={colors.primary} />
@@ -281,7 +287,7 @@ export default function LocationPicker({
         </View>
       )}
 
-      {loadingLandmarks && (
+      {loadingLandmarks && accountType !== 'landlord' && (
         <View style={[styles.loadingContainer, { backgroundColor: colors.card }]}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
@@ -290,7 +296,7 @@ export default function LocationPicker({
         </View>
       )}
 
-      {selectedLocation && !loadingLandmarks && landmarks.length > 0 && (
+      {selectedLocation && !loadingLandmarks && landmarks.length > 0 && accountType !== 'landlord' && (
         <View style={[styles.landmarksContainer, { backgroundColor: colors.card }]}>
           <View style={styles.landmarksHeader}>
             <Text style={[styles.landmarksTitle, { color: colors.foreground }]}>Nearby Places</Text>

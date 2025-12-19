@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert } from 'react-native';
 import { Control, Controller, UseFormWatch } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,9 +20,6 @@ export interface LandlordFormData {
   city?: string;
   province?: string;
   postal_code?: string;
-  parent_name?: string | null;
-  parent_contact?: string | null;
-  parent_email?: string | null;
   emergency_contact_name?: string;
   emergency_contact_number?: string;
 }
@@ -43,9 +40,8 @@ export function MultiStepLandlordForm({
   children,
 }: MultiStepLandlordFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [noParentInfo, setNoParentInfo] = useState(false);
 
-  const totalSteps = 5;
+  const totalSteps = 4;
 
   const validateStep = (step: number): boolean => {
     const values = watch();
@@ -98,27 +94,10 @@ export function MultiStepLandlordForm({
         return true;
 
       case 3:
-        // Parent/Guardian info is required unless "No Parent Info" is checked
-        if (!noParentInfo) {
-          if (!values.parent_name?.trim()) {
-            Alert.alert('Required', 'Please enter parent/guardian name or check "No Parent Info"');
-            return false;
-          }
-          if (!values.parent_contact?.trim()) {
-            Alert.alert(
-              'Required',
-              'Please enter parent/guardian contact or check "No Parent Info"'
-            );
-            return false;
-          }
-        }
-        return true;
-
-      case 4:
         // Emergency contact is optional but recommended
         return true;
 
-      case 5:
+      case 4:
         // ID verification
         return true;
 
@@ -166,7 +145,7 @@ export function MultiStepLandlordForm({
 
       {/* Step Labels */}
       <View className="mt-3 flex-row justify-between">
-        {['Personal', 'Address', 'Parent Info', 'Emergency', 'ID Proof'].map((label, index) => (
+        {['Personal', 'Address', 'Emergency', 'ID Proof'].map((label, index) => (
           <View key={label} className="items-center">
             <View
               className={`h-8 w-8 items-center justify-center rounded-full ${
@@ -363,78 +342,6 @@ export function MultiStepLandlordForm({
 
   const renderStep3 = () => (
     <View>
-      <Text className="mb-4 text-xl font-bold dark:text-white">Parent/Guardian Information</Text>
-      <Text className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-        Please provide contact information for your parent or guardian
-      </Text>
-
-      {/* No Parent Info Checkbox */}
-      <View className="mb-4 flex-row items-center gap-2">
-        <TouchableOpacity
-          onPress={() => setNoParentInfo(!noParentInfo)}
-          className={`h-5 w-5 items-center justify-center rounded border-2 ${
-            noParentInfo ? 'border-blue-600 bg-blue-600' : 'border-gray-300 dark:border-gray-600'
-          }`}>
-          {noParentInfo && <Ionicons name="checkmark" size={16} color="white" />}
-        </TouchableOpacity>
-        <Text className="text-sm text-gray-700 dark:text-gray-300">
-          I don't have parent/guardian information
-        </Text>
-      </View>
-
-      {!noParentInfo && (
-        <>
-          <Label className="text-sm">Parent/Guardian Name *</Label>
-          <Controller
-            control={control}
-            name="parent_name"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                placeholder="Enter parent/guardian name"
-                value={value || ''}
-                onChangeText={onChange}
-                className="mb-4"
-              />
-            )}
-          />
-
-          <Label className="text-sm">Parent/Guardian Contact *</Label>
-          <Controller
-            control={control}
-            name="parent_contact"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                placeholder="Enter parent/guardian contact number"
-                keyboardType="phone-pad"
-                value={value || ''}
-                onChangeText={onChange}
-                className="mb-4"
-              />
-            )}
-          />
-
-          <Label className="text-sm">Parent/Guardian Email (Optional)</Label>
-          <Controller
-            control={control}
-            name="parent_email"
-            render={({ field: { onChange, value } }) => (
-              <Input
-                placeholder="Enter parent/guardian email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={value || ''}
-                onChangeText={onChange}
-                className="mb-4"
-              />
-            )}
-          />
-        </>
-      )}
-    </View>
-  );
-
-  const renderStep4 = () => (
-    <View>
       <Text className="mb-4 text-xl font-bold dark:text-white">Emergency Contact</Text>
       <Text className="mb-4 text-sm text-gray-600 dark:text-gray-400">
         Provide an emergency contact person (optional but recommended)
@@ -471,7 +378,7 @@ export function MultiStepLandlordForm({
     </View>
   );
 
-  const renderStep5 = () => (
+  const renderStep4 = () => (
     <View>
       <Text className="mb-4 text-xl font-bold dark:text-white">ID Verification</Text>
       <Text className="mb-4 text-sm text-gray-600 dark:text-gray-400">
@@ -494,7 +401,6 @@ export function MultiStepLandlordForm({
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
         {currentStep === 4 && renderStep4()}
-        {currentStep === 5 && renderStep5()}
       </ScrollView>
 
       <View className="mt-4 flex-row gap-3">

@@ -34,7 +34,7 @@ export default function PaymentCalendarPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [notes, setNotes] = useState('');
+  const [amountPaid, setAmountPaid] = useState('');
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -108,12 +108,23 @@ export default function PaymentCalendarPage() {
   const updatePaymentMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPayment?.id) throw new Error('No payment selected');
+      const paidAmount = parseFloat(amountPaid) || 0;
+      let newStatus = paymentStatus;
+
+      // Auto-update status based on amount paid
+      if (paidAmount >= selectedPayment.amount) {
+        newStatus = 'paid';
+      } else if (paidAmount > 0) {
+        newStatus = 'partial';
+      }
+
       return paymentService.updatePaymentStatus(
         selectedPayment.id,
-        paymentStatus || selectedPayment.status,
-        paymentStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
-        notes || selectedPayment.notes,
+        newStatus || selectedPayment.status,
+        newStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+        undefined, // notes removed
         paymentMethod || selectedPayment.payment_method,
+        paidAmount,
         supabase
       );
     },
@@ -195,7 +206,7 @@ export default function PaymentCalendarPage() {
     setSelectedPayment(payment);
     setPaymentStatus(payment.status);
     setPaymentMethod(payment.payment_method || '');
-    setNotes(payment.notes || '');
+    setAmountPaid(payment.amount_paid?.toString() || '');
     setShowPaymentModal(true);
   };
 
@@ -301,9 +312,8 @@ export default function PaymentCalendarPage() {
               setViewMode('calendar');
               setSelectedDate(null);
             }}
-            className={`flex-1 rounded-lg py-3 ${
-              viewMode === 'calendar' ? 'bg-blue-600' : 'border'
-            }`}
+            className={`flex-1 rounded-lg py-3 ${viewMode === 'calendar' ? 'bg-blue-600' : 'border'
+              }`}
             style={viewMode !== 'calendar' ? { borderColor: colors.border } : undefined}>
             <View className="flex-row items-center justify-center gap-2">
               <Ionicons
@@ -361,9 +371,8 @@ export default function PaymentCalendarPage() {
             contentContainerStyle={{ gap: 8 }}>
             <TouchableOpacity
               onPress={() => setSelectedTenant(null)}
-              className={`rounded-full px-4 py-2 ${
-                selectedTenant === null ? 'bg-blue-600' : 'border bg-transparent'
-              }`}
+              className={`rounded-full px-4 py-2 ${selectedTenant === null ? 'bg-blue-600' : 'border bg-transparent'
+                }`}
               style={
                 selectedTenant !== null
                   ? { borderColor: colors.border, backgroundColor: colors.card }
@@ -382,9 +391,8 @@ export default function PaymentCalendarPage() {
                 <TouchableOpacity
                   key={tenant.id}
                   onPress={() => setSelectedTenant(tenant.id)}
-                  className={`rounded-full px-4 py-2 ${
-                    selectedTenant === tenant.id ? 'bg-blue-600' : 'border bg-transparent'
-                  }`}
+                  className={`rounded-full px-4 py-2 ${selectedTenant === tenant.id ? 'bg-blue-600' : 'border bg-transparent'
+                    }`}
                   style={
                     selectedTenant !== tenant.id
                       ? { borderColor: colors.border, backgroundColor: colors.card }
@@ -512,12 +520,48 @@ export default function PaymentCalendarPage() {
                 </Text>
               </View>
 
-              {/* Amount */}
-              <View className="mb-4 rounded-lg border p-3" style={{ borderColor: colors.border }}>
-                <Text className="text-xs text-gray-500">Amount</Text>
-                <Text className="text-2xl font-bold" style={{ color: colors.foreground }}>
-                  ₱{selectedPayment?.amount?.toLocaleString()}
-                </Text>
+              {/* Total Outstanding for Tenant */}
+              {(() => {
+                const tenantPayments = allPayments.filter((p: any) => p.tenant_id === selectedPayment?.tenant_id);
+                const totalOutstanding = tenantPayments.reduce((sum: number, p: any) => {
+                  if (p.status === 'paid') return sum;
+                  const paid = parseFloat(p.amount_paid) || 0;
+                  const due = p.amount || 0;
+                  return sum + Math.max(0, due - paid);
+                }, 0);
+
+                return (
+                  <View className="mb-4 rounded-lg border-l-4 bg-orange-50 p-4" style={{ borderColor: colors.border, borderLeftColor: '#F97316' }}>
+                    <Text className="text-xs font-semibold text-orange-600">Total Outstanding Balance (All Months)</Text>
+                    <Text className="mt-1 text-2xl font-bold text-orange-900">
+                      ₱{totalOutstanding.toLocaleString()}
+                    </Text>
+                  </View>
+                );
+              })()}
+
+              {/* Amount and Balance Row */}
+              <View className="mb-4 flex-row gap-3">
+                <View className="flex-1 rounded-lg border p-3" style={{ borderColor: colors.border }}>
+                  <Text className="text-xs text-gray-500">Monthly Due</Text>
+                  <Text className="text-xl font-bold" style={{ color: colors.foreground }}>
+                    ₱{selectedPayment?.amount?.toLocaleString()}
+                  </Text>
+                </View>
+
+                {(() => {
+                  const paid = parseFloat(amountPaid) || 0;
+                  const total = selectedPayment?.amount || 0;
+                  const balance = Math.max(0, total - paid);
+                  return (
+                    <View className="flex-1 rounded-lg border p-3" style={{ borderColor: colors.border, backgroundColor: balance > 0 ? '#FEF2F2' : '#ECFDF5' }}>
+                      <Text className="text-xs text-gray-500">Current Balance</Text>
+                      <Text className={`text-xl font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        ₱{balance.toLocaleString()}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </View>
 
               {/* Due Date */}
@@ -535,10 +579,15 @@ export default function PaymentCalendarPage() {
                   {['unpaid', 'paid', 'partial', 'overdue', 'cancelled'].map((status) => (
                     <TouchableOpacity
                       key={status}
-                      onPress={() => setPaymentStatus(status)}
-                      className={`rounded-full px-4 py-2 ${
-                        paymentStatus === status ? 'opacity-100' : 'opacity-50'
-                      }`}
+                      onPress={() => {
+                        setPaymentStatus(status);
+                        // Auto-fill amount if paid
+                        if (status === 'paid' && selectedPayment && (!amountPaid || parseFloat(amountPaid) < selectedPayment.amount)) {
+                          setAmountPaid(selectedPayment.amount.toString());
+                        }
+                      }}
+                      className={`rounded-full px-4 py-2 ${paymentStatus === status ? 'opacity-100' : 'opacity-50'
+                        }`}
                       style={{
                         backgroundColor: getPaymentColor(status),
                       }}>
@@ -567,16 +616,28 @@ export default function PaymentCalendarPage() {
                 />
               </View>
 
-              {/* Notes */}
+              {/* Amount Tendered (Replaces Notes) */}
               <View className="mb-4">
-                <Text className="mb-2 text-xs text-gray-500">Notes</Text>
+                <Text className="mb-2 text-xs text-gray-500">Amount Tendered (₱)</Text>
                 <TextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Add any notes..."
+                  value={amountPaid}
+                  onChangeText={(text) => {
+                    // Only allow numeric input
+                    if (/^\d*\.?\d*$/.test(text)) {
+                      setAmountPaid(text);
+
+                      // Auto-update status preview
+                      const val = parseFloat(text) || 0;
+                      if (selectedPayment && val >= selectedPayment.amount) {
+                        setPaymentStatus('paid');
+                      } else if (val > 0) {
+                        setPaymentStatus('partial');
+                      }
+                    }
+                  }}
+                  keyboardType="numeric"
+                  placeholder="Enter amount paid"
                   placeholderTextColor="#999"
-                  multiline
-                  numberOfLines={3}
                   style={{
                     backgroundColor: colors.background,
                     color: colors.foreground,
@@ -584,9 +645,13 @@ export default function PaymentCalendarPage() {
                     borderWidth: 1,
                     borderRadius: 8,
                     padding: 10,
-                    textAlignVertical: 'top',
+                    fontSize: 18,
+                    fontWeight: 'bold',
                   }}
                 />
+                <Text className="mt-1 text-xs text-gray-400">
+                  Enter the amount the tenant has paid so far.
+                </Text>
               </View>
             </ScrollView>
 
@@ -604,9 +669,8 @@ export default function PaymentCalendarPage() {
               <TouchableOpacity
                 onPress={() => updatePaymentMutation.mutate()}
                 disabled={updatePaymentMutation.isPending}
-                className={`flex-1 rounded-lg py-3 ${
-                  updatePaymentMutation.isPending ? 'bg-gray-400' : 'bg-blue-600'
-                }`}>
+                className={`flex-1 rounded-lg py-3 ${updatePaymentMutation.isPending ? 'bg-gray-400' : 'bg-blue-600'
+                  }`}>
                 <Text className="text-center font-semibold text-white">
                   {updatePaymentMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Text>

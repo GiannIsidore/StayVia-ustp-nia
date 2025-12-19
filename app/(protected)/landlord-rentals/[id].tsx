@@ -15,7 +15,6 @@ import { useSupabase } from '@/lib/supabase';
 import { useAppTheme } from '@/lib/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Button } from '@/components/ui/button';
 import { updateRentalDates } from '@/services/requestService';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 
@@ -48,7 +47,27 @@ export default function LandlordRentalDetailPage() {
         .select(
           `
           *,
-          users:user_id(id, firstname, lastname, avatar, email),
+          users:user_id(
+            id,
+            firstname,
+            lastname,
+            avatar,
+            email,
+            contact,
+            date_of_birth,
+            gender,
+            religion,
+            nationality,
+            home_address,
+            city,
+            province,
+            postal_code,
+            parent_name,
+            parent_contact,
+            parent_email,
+            emergency_contact_name,
+            emergency_contact_number
+          ),
           posts:post_id(id, title, description, location, price_per_night, image)
         `
         )
@@ -129,6 +148,12 @@ export default function LandlordRentalDetailPage() {
     }
   };
 
+  const formatValue = (value: unknown) => {
+    if (value === null || value === undefined) return 'Not provided';
+    const str = String(value).trim();
+    return str.length ? str : 'Not provided';
+  };
+
   const isLoading = isLoadingRental;
 
   if (isLoading) {
@@ -202,6 +227,128 @@ export default function LandlordRentalDetailPage() {
             <Text className="text-base" style={{ color: colors.foreground }}>
               {rental.users?.email}
             </Text>
+          </View>
+
+          <View className="mb-3">
+            <Text className="text-sm text-gray-500">Contact</Text>
+            <Text className="text-base" style={{ color: colors.foreground }}>
+              {formatValue(rental.users?.contact)}
+            </Text>
+          </View>
+
+          <View className="mt-2 border-t pt-3" style={{ borderColor: colors.border }}>
+            <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
+              Personal Details
+            </Text>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Date of Birth</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {rental.users?.date_of_birth ? formatDate(rental.users.date_of_birth) : 'Not provided'}
+              </Text>
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Gender</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.gender)}
+              </Text>
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Religion</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.religion)}
+              </Text>
+            </View>
+
+            <View>
+              <Text className="text-sm text-gray-500">Nationality</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.nationality)}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-3 border-t pt-3" style={{ borderColor: colors.border }}>
+            <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
+              Address
+            </Text>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Home Address</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.home_address)}
+              </Text>
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">City</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.city)}
+              </Text>
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Province</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.province)}
+              </Text>
+            </View>
+
+            <View>
+              <Text className="text-sm text-gray-500">Postal Code</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.postal_code)}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-3 border-t pt-3" style={{ borderColor: colors.border }}>
+            <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
+              Parent / Guardian
+            </Text>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Name</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.parent_name)}
+              </Text>
+            </View>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Contact</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.parent_contact)}
+              </Text>
+            </View>
+
+            <View>
+              <Text className="text-sm text-gray-500">Email</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.parent_email)}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-3 border-t pt-3" style={{ borderColor: colors.border }}>
+            <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
+              Emergency Contact
+            </Text>
+
+            <View className="mb-3">
+              <Text className="text-sm text-gray-500">Name</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.emergency_contact_name)}
+              </Text>
+            </View>
+
+            <View>
+              <Text className="text-sm text-gray-500">Contact Number</Text>
+              <Text className="text-base" style={{ color: colors.foreground }}>
+                {formatValue(rental.users?.emergency_contact_number)}
+              </Text>
+            </View>
           </View>
 
           {/* Tenant Rating */}

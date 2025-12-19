@@ -189,6 +189,7 @@ export const paymentService = {
     paymentDate?: string,
     notes?: string,
     paymentMethod?: string,
+    amountPaid?: number,
     supabase?: SupabaseClient<Database>
   ) {
     if (!supabase) throw new Error('Supabase client required');
@@ -206,6 +207,9 @@ export const paymentService = {
     }
     if (paymentMethod) {
       updateData.payment_method = paymentMethod;
+    }
+    if (amountPaid !== undefined) {
+      updateData.amount_paid = amountPaid;
     }
 
     // If marking as paid, reset notification tracking flags
