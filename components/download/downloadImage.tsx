@@ -9,6 +9,7 @@ interface DownloadImageProps {
   fallbackUri?: string; // Default image
   className?: string;
   style?: object;
+  resizeMode?: 'cover' | 'contain' | 'stretch' | 'repeat' | 'center';
 }
 
 export default function DownloadImage({
@@ -17,6 +18,7 @@ export default function DownloadImage({
   fallbackUri,
   className,
   style,
+  resizeMode = 'cover',
 }: DownloadImageProps) {
   const [uri, setUri] = useState<string | undefined>(fallbackUri);
   const [loading, setLoading] = useState(false);
@@ -63,5 +65,5 @@ export default function DownloadImage({
     );
   }
 
-  return <Image source={{ uri }} className={className} style={style} />;
+  return <Image source={{ uri }} className={className} style={style} resizeMode={resizeMode} />;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Dimensions,
+  Image,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +34,13 @@ export default function LandlordRentalDetailPage() {
   const [editEndDate, setEditEndDate] = useState<Date>(new Date());
   const [editMonthlyAmount, setEditMonthlyAmount] = useState<string>('');
   const [editPaymentDay, setEditPaymentDay] = useState<string>('');
+  
+  // Image URL states
+  const [frontImageUrl, setFrontImageUrl] = useState<string | null>(null);
+  const [backImageUrl, setBackImageUrl] = useState<string | null>(null);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [loadingImages, setLoadingImages] = useState(false);
 
   // Fetch rental details
   const {
@@ -66,7 +76,9 @@ export default function LandlordRentalDetailPage() {
             parent_contact,
             parent_email,
             emergency_contact_name,
-            emergency_contact_number
+            emergency_contact_number,
+            student_proof_id,
+            student_proof_id_back
           ),
           posts:post_id(id, title, description, location, price_per_night, image)
         `
@@ -153,6 +165,41 @@ export default function LandlordRentalDetailPage() {
     const str = String(value).trim();
     return str.length ? str : 'Not provided';
   };
+
+  // Generate signed URLs for student ID images
+  useEffect(() => {
+    const generateUrls = async () => {
+      if (!rental?.users) return;
+      
+      setLoadingImages(true);
+      try {
+        if (rental.users.student_proof_id) {
+          const { data, error } = await supabase.storage
+            .from('user-profiles')
+            .createSignedUrl(rental.users.student_proof_id, 3600);
+          if (error) throw error;
+          if (data) setFrontImageUrl(data.signedUrl);
+        }
+        
+        if (rental.users.student_proof_id_back) {
+          const { data, error } = await supabase.storage
+            .from('user-profiles')
+            .createSignedUrl(rental.users.student_proof_id_back, 3600);
+          if (error) throw error;
+          if (data) setBackImageUrl(data.signedUrl);
+        }
+      } catch (err) {
+        console.error('Error generating signed URLs:', err);
+      } finally {
+        setLoadingImages(false);
+      }
+    };
+
+    generateUrls();
+  }, [rental?.users?.student_proof_id, rental?.users?.student_proof_id_back, supabase]);
+
+  const screenWidth = Dimensions.get('window').width;
+  const isSmallScreen = screenWidth < 600;
 
   const isLoading = isLoadingRental;
 
@@ -244,7 +291,9 @@ export default function LandlordRentalDetailPage() {
             <View className="mb-3">
               <Text className="text-sm text-gray-500">Date of Birth</Text>
               <Text className="text-base" style={{ color: colors.foreground }}>
-                {rental.users?.date_of_birth ? formatDate(rental.users.date_of_birth) : 'Not provided'}
+                {rental.users?.date_of_birth
+                  ? formatDate(rental.users.date_of_birth)
+                  : 'Not provided'}
               </Text>
             </View>
 
@@ -348,6 +397,127 @@ export default function LandlordRentalDetailPage() {
               <Text className="text-base" style={{ color: colors.foreground }}>
                 {formatValue(rental.users?.emergency_contact_number)}
               </Text>
+            </View>
+          </View>
+
+          {/* Student ID Proof */}
+          <View className="mt-3 border-t pt-3" style={{ borderColor: colors.border }}>
+            <Text className="mb-2 text-sm font-semibold" style={{ color: colors.foreground }}>
+              Student ID Proof
+            </Text>
+
+            <View
+              className={isSmallScreen ? 'flex-col gap-3' : 'flex-row gap-3'}
+              style={{ flexDirection: isSmallScreen ? 'column' : 'row' }}>
+              {/* Front ID */}
+              <View className={isSmallScreen ? 'w-full' : 'flex-1'}>
+                <Text className="mb-1 text-xs text-gray-500">Front</Text>
+                {rental.users?.student_proof_id ? (
+                  loadingImages && !frontImageUrl ? (
+                    <View
+                      className="items-center justify-center rounded-lg border"
+                      style={{
+                        height: 150,
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                      }}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : frontImageUrl ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedImageUrl(frontImageUrl);
+                        setImageModalVisible(true);
+                      }}
+                      activeOpacity={0.8}>
+                      <Image
+                        source={{ uri: frontImageUrl }}
+                        style={{
+                          width: '100%',
+                          height: 150,
+                          borderRadius: 8,
+                        }}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      className="items-center justify-center rounded-lg border"
+                      style={{
+                        height: 150,
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                      }}>
+                      <Text className="text-sm text-gray-400">Not provided</Text>
+                    </View>
+                  )
+                ) : (
+                  <View
+                    className="items-center justify-center rounded-lg border"
+                    style={{
+                      height: 150,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    }}>
+                    <Text className="text-sm text-gray-400">Not provided</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Back ID */}
+              <View className={isSmallScreen ? 'w-full' : 'flex-1'}>
+                <Text className="mb-1 text-xs text-gray-500">Back</Text>
+                {rental.users?.student_proof_id_back ? (
+                  loadingImages && !backImageUrl ? (
+                    <View
+                      className="items-center justify-center rounded-lg border"
+                      style={{
+                        height: 150,
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                      }}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    </View>
+                  ) : backImageUrl ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedImageUrl(backImageUrl);
+                        setImageModalVisible(true);
+                      }}
+                      activeOpacity={0.8}>
+                      <Image
+                        source={{ uri: backImageUrl }}
+                        style={{
+                          width: '100%',
+                          height: 150,
+                          borderRadius: 8,
+                        }}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      className="items-center justify-center rounded-lg border"
+                      style={{
+                        height: 150,
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                      }}>
+                      <Text className="text-sm text-gray-400">Not provided</Text>
+                    </View>
+                  )
+                ) : (
+                  <View
+                    className="items-center justify-center rounded-lg border"
+                    style={{
+                      height: 150,
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    }}>
+                    <Text className="text-sm text-gray-400">Not provided</Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
 
@@ -581,6 +751,30 @@ export default function LandlordRentalDetailPage() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Fullscreen Image Modal */}
+      <Modal
+        visible={imageModalVisible}
+        transparent={true}
+        onRequestClose={() => setImageModalVisible(false)}>
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+          onPress={() => setImageModalVisible(false)}
+          activeOpacity={1}>
+          {selectedImageUrl && (
+            <Image
+              source={{ uri: selectedImageUrl }}
+              style={{ width: '90%', height: '90%' }}
+              resizeMode="contain"
+            />
+          )}
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
