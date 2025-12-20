@@ -173,21 +173,47 @@ export default function LandlordRentalDetailPage() {
       
       setLoadingImages(true);
       try {
+        // Generate URLs in parallel instead of sequentially
+        const promises = [];
+        
         if (rental.users.student_proof_id) {
-          const { data, error } = await supabase.storage
-            .from('user-profiles')
-            .createSignedUrl(rental.users.student_proof_id, 3600);
-          if (error) throw error;
-          if (data) setFrontImageUrl(data.signedUrl);
+          promises.push(
+            supabase.storage
+              .from('user-profiles')
+              .createSignedUrl(rental.users.student_proof_id, 3600)
+              .then(({ data, error }) => {
+                if (error) {
+                  console.error('Error generating front image URL:', error);
+                  return null;
+                }
+                return data?.signedUrl || null;
+              })
+          );
+        } else {
+          promises.push(Promise.resolve(null));
         }
         
         if (rental.users.student_proof_id_back) {
-          const { data, error } = await supabase.storage
-            .from('user-profiles')
-            .createSignedUrl(rental.users.student_proof_id_back, 3600);
-          if (error) throw error;
-          if (data) setBackImageUrl(data.signedUrl);
+          promises.push(
+            supabase.storage
+              .from('user-profiles')
+              .createSignedUrl(rental.users.student_proof_id_back, 3600)
+              .then(({ data, error }) => {
+                if (error) {
+                  console.error('Error generating back image URL:', error);
+                  return null;
+                }
+                return data?.signedUrl || null;
+              })
+          );
+        } else {
+          promises.push(Promise.resolve(null));
         }
+        
+        const [frontUrl, backUrl] = await Promise.all(promises);
+        
+        if (frontUrl) setFrontImageUrl(frontUrl);
+        if (backUrl) setBackImageUrl(backUrl);
       } catch (err) {
         console.error('Error generating signed URLs:', err);
       } finally {
@@ -196,7 +222,7 @@ export default function LandlordRentalDetailPage() {
     };
 
     generateUrls();
-  }, [rental?.users?.student_proof_id, rental?.users?.student_proof_id_back, supabase]);
+  }, [rental?.users?.student_proof_id, rental?.users?.student_proof_id_back]);
 
   const screenWidth = Dimensions.get('window').width;
   const isSmallScreen = screenWidth < 600;
@@ -431,7 +457,10 @@ export default function LandlordRentalDetailPage() {
                       }}
                       activeOpacity={0.8}>
                       <Image
-                        source={{ uri: frontImageUrl }}
+                        source={{ 
+                          uri: frontImageUrl,
+                          cache: 'force-cache'
+                        }}
                         style={{
                           width: '100%',
                           height: 150,
@@ -486,7 +515,10 @@ export default function LandlordRentalDetailPage() {
                       }}
                       activeOpacity={0.8}>
                       <Image
-                        source={{ uri: backImageUrl }}
+                        source={{ 
+                          uri: backImageUrl,
+                          cache: 'force-cache'
+                        }}
                         style={{
                           width: '100%',
                           height: 150,
@@ -768,7 +800,10 @@ export default function LandlordRentalDetailPage() {
           activeOpacity={1}>
           {selectedImageUrl && (
             <Image
-              source={{ uri: selectedImageUrl }}
+              source={{ 
+                uri: selectedImageUrl,
+                cache: 'force-cache'
+              }}
               style={{ width: '90%', height: '90%' }}
               resizeMode="contain"
             />
